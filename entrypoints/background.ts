@@ -59,14 +59,7 @@ export default defineBackground(() => {
     if (action) void runOnActiveTab(action);
   });
 
-  // Popup -> background -> content relay. Only popup-originated messages use
-  // this path; commands and the context menu trigger runOnActiveTab directly.
-  browser.runtime.onMessage.addListener((msg: unknown) => {
-    if (!msg || typeof msg !== 'object') return undefined;
-    const { source, action } = msg as { source?: string; action?: FillAction };
-    if (source !== 'popup' || !(action === 'fillAll' || action === 'fillForm' || action === 'clear')) {
-      return undefined;
-    }
-    return runOnActiveTab(action);
-  });
+  // Clicking the toolbar icon fills all forms on the active tab immediately
+  // (there is no popup). action.onClicked only fires when default_popup is unset.
+  browser.action.onClicked.addListener(() => void runOnActiveTab('fillAll'));
 });

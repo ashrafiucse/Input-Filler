@@ -14,6 +14,11 @@ export default defineConfig({
     // right-click fill items.
     permissions: ['storage', 'contextMenus'],
     host_permissions: ['<all_urls>'],
+    // No popup: clicking the toolbar icon fills all forms immediately via
+    // action.onClicked in the background.
+    action: {
+      default_title: 'Input Filler',
+    },
     commands: {
       'fill-all': { description: 'Fill all forms on the page' },
       'fill-form': { description: 'Fill the current form' },
