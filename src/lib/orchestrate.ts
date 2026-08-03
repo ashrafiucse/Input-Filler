@@ -144,7 +144,7 @@ function generateValue(
     case 'full_name':
       return fullName({ first: page.first, last: page.last, rng });
     case 'email':
-      return email({ first: page.first, last: page.last, rng });
+      return email({ first: page.first, last: page.last, domain: settings.general.emailDomain, rng });
     case 'username':
       return username({ first: page.first, last: page.last });
     case 'phone':
@@ -179,9 +179,10 @@ function generateValue(
       return genNumber(min, max, step, rng);
     }
     case 'password':
-      return settings.password.mode === 'fixed'
-        ? settings.password.fixedValue
-        : genPassword({ length: settings.password.length, rng });
+      if (settings.password.mode === 'fixed' && settings.password.fixedValue) {
+        return settings.password.fixedValue;
+      }
+      return genPassword({ length: settings.password.length, rng });
     case 'paragraph': {
       // Textareas get a readable multi-sentence paragraph, capped by the
       // field's own maxlength or the configured default.

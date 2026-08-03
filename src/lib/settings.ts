@@ -32,6 +32,7 @@ export interface FillerSettings {
     ignoredDomains: string[];
     textTheme: TextTheme;
     theme: 'light' | 'dark';
+    emailDomain: string;
   };
   settingsVersion: number;
 }
@@ -67,6 +68,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
     ignoredDomains: [],
     textTheme: 'business',
     theme: 'light',
+    emailDomain: 'gmail.com',
   },
   settingsVersion: SETTINGS_VERSION,
 };
@@ -109,6 +111,7 @@ export function mergeDefaults(raw: unknown): FillerSettings {
       ignoredDomains: strArr(g.ignoredDomains, d.general.ignoredDomains),
       textTheme: g.textTheme ?? d.general.textTheme,
       theme: g.theme === 'dark' ? 'dark' : g.theme === 'light' ? 'light' : d.general.theme,
+      emailDomain: typeof g.emailDomain === 'string' && g.emailDomain.trim() ? g.emailDomain.trim() : d.general.emailDomain,
     },
     settingsVersion: SETTINGS_VERSION,
   };

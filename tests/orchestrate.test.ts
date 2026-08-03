@@ -167,6 +167,27 @@ describe('generic text fields get readable sentences', () => {
   });
 });
 
+describe('password and email domain', () => {
+  it('fills a password field with a non-empty value', () => {
+    setDoc(`<form><input name="password" type="password"></form>`);
+    fillAllForms(document, ctx());
+    const v = (document.querySelector('[name=password]') as HTMLInputElement).value;
+    expect(v.length).toBeGreaterThanOrEqual(8);
+  });
+  it('email fields use @gmail.com by default', () => {
+    setDoc(`<form><input name="email" type="email"></form>`);
+    fillAllForms(document, ctx());
+    const v = (document.querySelector('[name=email]') as HTMLInputElement).value;
+    expect(v.endsWith('@gmail.com')).toBe(true);
+  });
+  it('honors a custom email domain from settings', () => {
+    setDoc(`<form><input name="email" type="email"></form>`);
+    fillAllForms(document, ctx({ general: { ...DEFAULT_SETTINGS.general, emailDomain: 'acme.io' } }));
+    const v = (document.querySelector('[name=email]') as HTMLInputElement).value;
+    expect(v.endsWith('@acme.io')).toBe(true);
+  });
+});
+
 describe('clearAllForms', () => {
   it('resets filled values and states', () => {
     setDoc(`<form><input name="a" type="text"><input name="c" type="checkbox"></form>`);

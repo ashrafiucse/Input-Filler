@@ -31,6 +31,7 @@ function slug(s: string): string {
 export interface NameOpts {
   first?: string;
   last?: string;
+  domain?: string;
   rng?: Rng;
 }
 
@@ -53,7 +54,8 @@ export function email(opts: NameOpts = {}): string {
   const first = slug(opts.first ?? firstName(rng));
   const last = slug(opts.last ?? lastName(rng));
   const n = int(1, 999, 1, rng);
-  return `${first}.${last}${n}@${pick(DOMAINS, rng)}`;
+  const domain = opts.domain ?? 'gmail.com';
+  return `${first}.${last}${n}@${domain}`;
 }
 
 export function username(opts: NameOpts = {}): string {

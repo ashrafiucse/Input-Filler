@@ -57,6 +57,7 @@ function populateSettings(): void {
   setChecked('g-events', settings.general.triggerEvents);
   setChecked('g-menu', settings.general.contextMenu);
   setVal('g-domains', settings.general.ignoredDomains.join(', '));
+  setVal('g-emaildomain', settings.general.emailDomain);
   setVal('g-theme-text', settings.general.textTheme);
   setVal('g-theme-ui', settings.general.theme);
   document.documentElement.dataset.theme = settings.general.theme;
@@ -85,6 +86,7 @@ function collectSettings(): FillerSettings {
       triggerEvents: checked('g-events'),
       contextMenu: checked('g-menu'),
       ignoredDomains: csv(val('g-domains')),
+      emailDomain: val('g-emaildomain').trim() || 'gmail.com',
       textTheme: val('g-theme-text') as FillerSettings['general']['textTheme'],
       theme: val('g-theme-ui') === 'dark' ? 'dark' : 'light',
     },
@@ -235,7 +237,7 @@ async function init(): Promise<void> {
 
   for (const id of [
     'pw-mode', 'pw-length', 'pw-fixed', 'pw-log', 'f-ignore', 'f-confirm', 'f-agree', 'f-maxlen',
-    'f-skiphidden', 'f-skipfilled', 'g-events', 'g-menu', 'g-domains', 'g-theme-text', 'g-theme-ui',
+    'f-skiphidden', 'f-skipfilled', 'g-events', 'g-menu', 'g-domains', 'g-emaildomain', 'g-theme-text', 'g-theme-ui',
   ]) {
     document.getElementById(id)?.addEventListener('change', () => void saveSettingsDebounced());
   }
