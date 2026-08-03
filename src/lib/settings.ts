@@ -73,6 +73,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
 export interface StorageArea {
   get(keys: string[]): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
+  remove(keys: string[]): Promise<void>;
 }
 export interface StorageAdapter {
   sync: StorageArea;
@@ -147,10 +148,12 @@ export function getDefaultStorageAdapter(): StorageAdapter {
     sync: {
       get: (keys) => browser.storage.sync.get(keys),
       set: (items) => browser.storage.sync.set(items),
+      remove: (keys) => browser.storage.sync.remove(keys),
     },
     local: {
       get: (keys) => browser.storage.local.get(keys),
       set: (items) => browser.storage.local.set(items),
+      remove: (keys) => browser.storage.local.remove(keys),
     },
   };
 }

@@ -24,6 +24,9 @@ function fakeStorage(): { adapter: StorageAdapter; store: { sync: Record<string,
     async set(items) {
       Object.assign(store[area], items);
     },
+    async remove(keys) {
+      for (const k of keys) delete store[area][k];
+    },
   });
   return { store, adapter: { sync: mk('sync'), local: mk('local') } };
 }
