@@ -1,0 +1,143 @@
+import { describe, it, expect } from 'vitest';
+import { createRng } from '../src/lib/rng';
+import {
+  firstName,
+  lastName,
+  fullName,
+  email,
+  username,
+  phone,
+  street,
+  city,
+  state,
+  zip,
+  company,
+  jobTitle,
+  url,
+  number,
+  date,
+  color,
+  password,
+  sentence,
+  paragraph,
+  generateByName,
+  BUILTIN_GENERATORS,
+} from '../src/lib/generators';
+import { dummyText, CORPUS } from '../src/lib/text';
+
+const EMAIL_RE = /^[a-z0-9.]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+const PHONE_RE = /^\(\d{3}\) \d{3}-\d{4}$/;
+const URL_RE = /^https:\/\/www\.[a-z0-9]+\.com$/;
+const HEX_RE = /^#[0-9a-f]{6}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+describe('generators shape', () => {
+  it('email matches an email pattern', () => {
+    for (let i = 0; i < 50; i++) expect(email()).toMatch(EMAIL_RE);
+  });
+  it('phone matches the (xxx) xxx-xxxx format', () => {
+    for (let i = 0; i < 50; i++) expect(phone()).toMatch(PHONE_RE);
+  });
+  it('url is absolute and well-formed', () => {
+    for (let i = 0; i < 50; i++) expect(url()).toMatch(URL_RE);
+  });
+  it('color is a #rrggbb hex string', () => {
+    for (let i = 0; i < 20; i++) expect(color()).toMatch(HEX_RE);
+  });
+  it('date is ISO YYYY-MM-DD', () => {
+    for (let i = 0; i < 20; i++) expect(date()).toMatch(DATE_RE);
+  });
+  it('zip is 5 digits and state is a 2-letter code', () => {
+    for (let i = 0; i < 20; i++) {
+      expect(zip()).toMatch(/^\d{5}$/);
+      expect(state()).toMatch(/^[A-Z]{2}$/);
+    }
+  });
+  it('street has a number, name, and suffix', () => {
+    expect(street()).toMatch(/^\d+ [A-Za-z]+ [A-Za-z]+$/);
+  });
+});
+
+describe('name/email consistency', () => {
+  it('email local-part derives from the provided name', () => {
+    const rng = createRng(42);
+    const f = firstName(rng);
+    const l = lastName(rng);
+    const e = email({ first: f, last: l, rng });
+    const local = e.split('@')[0] as string;
+    expect(local.startsWith(`${f.toLowerCase()}.${l.toLowerCase()}`.replace(/[^a-z0-9.]/g, '.'))).toBe(true);
+  });
+  it('username derives from first initial + last name', () => {
+    const u = username({ first: 'Eleanor', last: 'Whitfield' });
+    expect(u).toBe('ewhitfield');
+  });
+  it('fullName combines first and last', () => {
+    expect(fullName({ first: 'Eleanor', last: 'Whitfield' })).toBe('Eleanor Whitfield');
+  });
+});
+
+describe('number, password, paragraph', () => {
+  it('number respects min/max and step', () => {
+    for (let i = 0; i < 200; i++) {
+      const v = Number(number(0, 10, 2));
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(10);
+      expect(v % 2).toBe(0);
+    }
+  });
+  it('password meets common rules (length, mixed case, digit, symbol)', () => {
+    for (let i = 0; i < 30; i++) {
+      const p = password();
+      expect(p.length).toBeGreaterThanOrEqual(8);
+      expect(/[a-z]/.test(p)).toBe(true);
+      expect(/[A-Z]/.test(p)).toBe(true);
+      expect(/[0-9]/.test(p)).toBe(true);
+      expect(/[!$%@#?]/.test(p)).toBe(true);
+    }
+  });
+  it('paragraph(n) joins exactly n sentences', () => {
+    const p = paragraph(4);
+    // Each sentence ends with '.', so splitting on '. ' gives n parts.
+    expect(p.split('. ').filter((s) => s.trim().length > 0)).toHaveLength(4);
+  });
+});
+
+describe('dummyText readability engine', () => {
+  it('never exceeds maxLen and never cuts a sentence mid-word', () => {
+    for (let i = 0; i < 100; i++) {
+      const maxLen = 40 + i;
+      const out = dummyText(maxLen, 'business');
+      expect(out.length).toBeLessThanOrEqual(maxLen);
+      if (out.length) {
+        // Output ends at a sentence boundary ('.') or is a clipped word/grammar.
+        const endsClean = out.endsWith('.') || !out.includes(' ');
+        expect(endsClean).toBe(true);
+      }
+    }
+  });
+  it('falls back gracefully for a tiny budget without throwing', () => {
+    expect(dummyText(3, 'business')).toHaveLength(3);
+    expect(dummyText(1, 'business')).toHaveLength(1);
+    expect(dummyText(0, 'business')).toBe('');
+  });
+  it('produces fresh, repeat-free output within a call', () => {
+    const out = dummyText(10000, 'tech');
+    const parts = out.split('. ').filter((s) => s.trim().length > 0).map((s) => s.trim());
+    // No sentence repeats within a single call.
+    expect(new Set(parts).size).toBe(parts.length);
+    // Across 100 calls, output varies.
+    const sample = new Set(Array.from({ length: 100 }, () => dummyText(200, 'tech')));
+    expect(sample.size).toBeGreaterThan(5);
+  });
+});
+
+describe('builtin generator registry', () => {
+  it('generateByName resolves every registered name', () => {
+    for (const name of BUILTIN_GENERATORS) {
+      expect(typeof generateByName(name, createRng(1))).toBe('string');
+    }
+  });
+  it('unknown names fall back to a sentence, never throw', () => {
+    expect(typeof generateByName('nope', createRng(1))).toBe('string');
+  });
+});
