@@ -30,7 +30,7 @@ export function char(s: string, rng: Rng = defaultRng): string {
 /** Inclusive random integer in [min, max] snapped to a step. */
 export function int(min: number, max: number, step = 1, rng: Rng = defaultRng): number {
   const span = max - min;
-  const steps = Math.round(span / step);
+  const steps = Math.floor(span / step); // floor so the snapped value never exceeds max
   const k = Math.floor(rng() * (steps + 1));
   return min + k * step;
 }

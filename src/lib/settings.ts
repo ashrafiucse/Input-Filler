@@ -8,6 +8,7 @@ import type { MatchAttribute } from './detect';
 export type { MatchAttribute } from './detect';
 export type { TextTheme } from './text';
 import type { TextTheme } from './text';
+import { safeCompile } from './regex-safety';
 
 export interface FillerSettings {
   password: {
@@ -80,19 +81,35 @@ export interface StorageAdapter {
   local: StorageArea;
 }
 
+function strArr(v: unknown, fallback: string[]): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : fallback;
+}
+
 /** Merge a partial/stored object over the defaults, recursing one level. */
 export function mergeDefaults(raw: unknown): FillerSettings {
   const d = DEFAULT_SETTINGS;
   if (!raw || typeof raw !== 'object') return clone(d);
   const s = raw as Partial<FillerSettings>;
+  const f = s.fields ?? d.fields;
+  const g = s.general ?? d.general;
   return {
     password: { ...d.password, ...(s.password ?? {}) },
     fields: {
-      ...d.fields,
-      ...(s.fields ?? {}),
-      matchFieldsUsing: s.fields?.matchFieldsUsing ?? d.fields.matchFieldsUsing,
+      ignoreFields: strArr(f.ignoreFields, d.fields.ignoreFields),
+      ignoreHiddenInvisible: typeof f.ignoreHiddenInvisible === 'boolean' ? f.ignoreHiddenInvisible : d.fields.ignoreHiddenInvisible,
+      ignoreFieldsWithContent: typeof f.ignoreFieldsWithContent === 'boolean' ? f.ignoreFieldsWithContent : d.fields.ignoreFieldsWithContent,
+      confirmationFields: strArr(f.confirmationFields, d.fields.confirmationFields),
+      agreeToTermsFields: strArr(f.agreeToTermsFields, d.fields.agreeToTermsFields),
+      matchFieldsUsing: Array.isArray(f.matchFieldsUsing) && f.matchFieldsUsing.length ? (f.matchFieldsUsing as MatchAttribute[]) : d.fields.matchFieldsUsing,
+      maxLength: typeof f.maxLength === 'number' && Number.isFinite(f.maxLength) ? f.maxLength : d.fields.maxLength,
     },
-    general: { ...d.general, ...(s.general ?? {}) },
+    general: {
+      triggerEvents: typeof g.triggerEvents === 'boolean' ? g.triggerEvents : d.general.triggerEvents,
+      contextMenu: typeof g.contextMenu === 'boolean' ? g.contextMenu : d.general.contextMenu,
+      ignoredDomains: strArr(g.ignoredDomains, d.general.ignoredDomains),
+      textTheme: g.textTheme ?? d.general.textTheme,
+      theme: g.theme === 'dark' ? 'dark' : g.theme === 'light' ? 'light' : d.general.theme,
+    },
     settingsVersion: SETTINGS_VERSION,
   };
 }
@@ -161,10 +178,7 @@ export function getDefaultStorageAdapter(): StorageAdapter {
 /** True if the given origin should be disabled (regex list in settings). */
 export function isIgnoredOrigin(origin: string, ignoredDomains: string[]): boolean {
   return ignoredDomains.some((pat) => {
-    try {
-      return new RegExp(pat).test(origin);
-    } catch {
-      return origin.includes(pat);
-    }
+    const re = safeCompile(pat);
+    return re ? re.test(origin) : origin.includes(pat);
   });
 }

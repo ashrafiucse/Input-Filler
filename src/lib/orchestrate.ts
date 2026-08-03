@@ -23,17 +23,15 @@ import {
   jobTitle,
   lastName,
   number as genNumber,
-  paragraph,
   password as genPassword,
   phone,
-  sentence,
   state,
   street,
   url as genUrl,
   username,
   zip,
 } from './generators';
-import { int, type Rng, defaultRng } from './rng';
+import { type Rng, defaultRng } from './rng';
 import type { TextTheme } from './text';
 
 export interface FillContext {
@@ -191,8 +189,13 @@ function generateValue(
       return settings.password.mode === 'fixed'
         ? settings.password.fixedValue
         : genPassword({ length: settings.password.length, rng });
-    case 'paragraph':
-      return paragraph(int(2, 4, 1, rng), theme, rng);
+    case 'paragraph': {
+      // Textareas honor their own maxlength (trimmed at a sentence boundary);
+      // with no limit, a short multi-sentence budget keeps output readable.
+      const fieldMax = (el as HTMLTextAreaElement).maxLength;
+      const budget = fieldMax && fieldMax > 0 ? fieldMax : 240;
+      return dummyText(Math.min(budget, 240), theme, rng);
+    }
     case 'sentence':
     case 'text':
     default:
@@ -232,7 +235,16 @@ function fillOne(
   let type: string;
   if (matched) {
     type = detectType(desc, settings.fields.matchFieldsUsing);
-    value = isMechanicalType(type) ? undefined : (resolveFill(matched, { origin, element: el, rng }) ?? undefined);
+    if (isMechanicalType(type)) {
+      value = undefined;
+    } else {
+      try {
+        value = resolveFill(matched, { origin, element: el, rng }) ?? undefined;
+      } catch {
+        // A malformed rule must not abort the whole fill pass; fall back to auto.
+        value = generateValue(type, el, settings, page, rng);
+      }
+    }
   } else {
     type = detectType(desc, settings.fields.matchFieldsUsing);
     value = generateValue(type, el, settings, page, rng);
@@ -299,7 +311,6 @@ export function clearAllForms(doc: Document): number {
   for (const el of discoverFields(doc.body)) {
     const input = el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
     if (input.disabled || (input as HTMLInputElement).readOnly) continue;
-    if (el.tagName.toLowerCase() === 'option') continue;
     if (input.type === 'checkbox' || input.type === 'radio') {
       if ((input as HTMLInputElement).checked) {
         (input as HTMLInputElement).checked = false;

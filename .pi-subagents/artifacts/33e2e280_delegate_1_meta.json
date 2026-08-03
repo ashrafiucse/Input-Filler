@@ -1,0 +1,151 @@
+{
+  "runId": "33e2e280",
+  "agent": "delegate",
+  "task": "You are an independent CODE reviewer (testing coverage lens) for a TypeScript browser-extension project at D:\\Input Filler.\n\nRead the plan: D:\\Input Filler\\docs\\plans\\2026-08-03-001-feat-cross-browser-input-filler-plan.md (per-unit Test scenarios are the intended coverage).\nThen compare the actual tests against the implementation:\n- Tests: D:\\Input Filler\\tests\\*.test.ts\n- Implementation: D:\\Input Filler\\src\\lib\\*.ts and D:\\Input Filler\\entrypoints\\*.ts\n\nAssess: Which behaviors in the implementation have NO test, or where tests assert the wrong thing? Specifically check coverage of: radio group round-robin idempotency, select avoiding disabled/empty options, confirmation-field copy, agree-to-terms, ignoredDomains gating, custom-rule matching/resolution (all 5 fill kinds), template parameterized placeholders, regex guards, chunked rule storage round-trip + stale cleanup, settings migration, and the message contract. Note any plan Test scenario that is not covered.\n\nRules: Only report real coverage gaps that could let a bug ship. For each: severity P2/P3, the behavior/file lacking coverage, and what test to add. If coverage is adequate, say 'No material testing gaps.' Do not edit files. Return a concise numbered list.",
+  "exitCode": 0,
+  "usage": {
+    "input": 43999,
+    "output": 8983,
+    "cacheRead": 420416,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 17
+  },
+  "model": "zai/glm-5.2",
+  "attemptedModels": [
+    "zai/glm-5.2"
+  ],
+  "modelAttempts": [
+    {
+      "model": "zai/glm-5.2",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 43999,
+        "output": 8983,
+        "cacheRead": 420416,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 17
+      }
+    }
+  ],
+  "durationMs": 184434,
+  "toolCount": 36,
+  "launchContractDigest": "518e775ff2a6bf30b46f3e07947ac66b25d1e035781b9d0f69f93e808412f462",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:4aa3b241a0f236e8"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:4aa3b241a0f236e8"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only task wording"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only task wording"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Concrete findings with file paths and P2/P3 severities listed above (settings.ts isIgnoredOrigin; background.ts runOnActiveTab + rebuildContextMenu; orchestrate.test.ts radio gap; rules.ts resolveFill template/paragraph + invalid-regex match; settings.ts loadSettings fallback). Baseline npm test run: 91/91 passed."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "npm test -- --run",
+          "result": "passed",
+          "summary": "10 files, 91 tests passed (baseline green)"
+        },
+        {
+          "command": "grep isIgnoredOrigin|ignoredDomains|rebuildContextMenu|runOnActiveTab in tests/",
+          "result": "not-run",
+          "summary": "No matches — confirms gating/routing/menu are untested"
+        }
+      ],
+      "validationOutput": [
+        "91/91 tests pass; review-only, no edits.",
+        "2 P2 gaps (isIgnoredOrigin, background runOnActiveTab gating) and 5 P3 gaps identified; all requested behaviors otherwise covered."
+      ],
+      "residualRisks": [
+        "R4 blocklist gating (isIgnoredOrigin + runOnActiveTab no-op) is untested — a regression could let fills run on ignored origins.",
+        "Background message relay, clear-bypasses-gate, context-menu rebuild, and no-active-tab graceful failure are untested.",
+        "Radio grouping through orchestrate, resolveFill template dispatch, loadSettings sync-failure fallback, and invalid match-regex no-throw are unverified."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "No changes — review only.",
+      "reviewFindings": [
+        "P2: src/lib/settings.ts isIgnoredOrigin — no unit test for the R4 blocklist gate (regex + includes fallback).",
+        "P2: entrypoints/background.ts runOnActiveTab — gating/relay/no-active-tab/clear-bypass untested; plan U8 scenarios not covered.",
+        "P3: entrypoints/background.ts rebuildContextMenu — contextMenu on/off toggle not asserted.",
+        "P3: tests/orchestrate.test.ts — mixed-form fixture omits radio (plan U7 scenario); radio orchestration unverified.",
+        "P3: src/lib/rules.ts resolveFill kind='template' dispatch + parameterized {paragraph(n)} untested.",
+        "P3: src/lib/settings.ts loadSettings — sync.get throw → local fallback path untested.",
+        "P3: src/lib/rules.ts matchRule — invalid regex in a match condition not asserted no-throw."
+      ],
+      "manualNotes": "No blockers to ship the tested surface, but the two P2 gating gaps are the most material since R4 (no-op on blocklisted origins) is a privacy/control requirement and is currently covered by zero tests at either the helper or background layer."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": false
+    }
+  },
+  "transcriptPath": "D:\\Input Filler\\.pi-subagents\\artifacts\\33e2e280_delegate_1_transcript.jsonl",
+  "timestamp": 1785749341073
+}

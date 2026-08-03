@@ -69,6 +69,33 @@ export interface ImportResult {
   error?: string;
 }
 
+const FILL_KINDS = new Set<string>(['builtin', 'static', 'template', 'list', 'regex']);
+
+function isValidRule(v: unknown): v is CustomRule {
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Record<string, unknown>;
+  if (typeof r.id !== 'string' || typeof r.name !== 'string') return false;
+  if (!(r.match instanceof Object)) return false;
+  const m = r.match as Record<string, unknown>;
+  if (m.mode !== 'any' && m.mode !== 'all') return false;
+  if (!(r.fill instanceof Object)) return false;
+  const f = r.fill as Record<string, unknown>;
+  if (typeof f.kind !== 'string' || !FILL_KINDS.has(f.kind)) return false;
+  if (typeof f.value !== 'string') return false;
+  // String-check the pattern fields; unsafe/invalid match regexes are rejected.
+  for (const k of ['field', 'id', 'label', 'selector', 'urlPattern', 'type']) {
+    const val = m[k];
+    if (val !== undefined && typeof val !== 'string') return false;
+  }
+  if (typeof f.kind === 'string' && f.kind === 'regex' && typeof f.value === 'string' && f.value) {
+    if (!isSafeRegex(f.value) || !compileRegex(f.value)) return false;
+  }
+  if (typeof m.urlPattern === 'string' && m.urlPattern && (!isSafeRegex(m.urlPattern) || !compileRegex(m.urlPattern))) {
+    return false;
+  }
+  return true;
+}
+
 export function importRules(json: string): ImportResult {
   let parsed: unknown;
   try {
@@ -78,15 +105,9 @@ export function importRules(json: string): ImportResult {
   }
   if (!Array.isArray(parsed)) return { ok: false, error: 'Expected a list of rules' };
   for (const r of parsed) {
-    if (!isRuleShape(r)) return { ok: false, error: 'An entry is not a valid rule' };
+    if (!isValidRule(r)) return { ok: false, error: 'An entry is not a valid rule' };
   }
   return { ok: true, rules: normalizePriorities(parsed as CustomRule[]) };
-}
-
-function isRuleShape(v: unknown): boolean {
-  if (!v || typeof v !== 'object') return false;
-  const r = v as Record<string, unknown>;
-  return typeof r.id === 'string' && r.match instanceof Object && r.fill instanceof Object;
 }
 
 /** Validate a single rule; returns a list of human-readable errors (empty = valid). */

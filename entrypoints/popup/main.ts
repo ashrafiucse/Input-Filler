@@ -17,7 +17,7 @@ async function run(action: PopupAction): Promise<void> {
   setBusy(true);
   setStatus('Working…', 'busy');
   try {
-    const res = await browser.runtime.sendMessage({ action });
+    const res = await browser.runtime.sendMessage({ action, source: 'popup' });
     const s = formatPopupStatus(action, res as Parameters<typeof formatPopupStatus>[1]);
     setStatus(s.text, s.cls);
   } catch {

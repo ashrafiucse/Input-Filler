@@ -44,11 +44,13 @@ function fillCheckbox(el: HTMLInputElement, trigger: boolean): void {
 
 function fillRadio(el: HTMLInputElement, trigger: boolean): void {
   const name = el.name;
-  const doc = el.ownerDocument;
+  // Scope to the owning form so two forms that each contain a same-named group
+  // each get a selection (HTML scopes radio groups by form owner).
+  const root: ParentNode = el.form ?? el.closest('form') ?? el.ownerDocument;
   let group: HTMLInputElement[] = [el];
   if (name) {
     const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(name) : name;
-    group = Array.from(doc.querySelectorAll<HTMLInputElement>(`input[type=radio][name="${safe}"]`));
+    group = Array.from(root.querySelectorAll<HTMLInputElement>(`input[type=radio][name="${safe}"]`));
     if (group.length === 0) group = [el];
   }
   // Idempotent per group: if a selection already exists, leave it.

@@ -10,6 +10,9 @@ import { generateByName, number, paragraph } from './generators';
 import { pick, defaultRng, type Rng } from './rng';
 import type { FieldDescriptor } from './detect';
 import { RULES_KEY, type StorageAdapter } from './settings';
+import { isSafeRegex, safeCompile } from './regex-safety';
+
+export { isSafeRegex, safeCompile } from './regex-safety';
 
 type RandExpInstance = { gen: () => string; max?: number };
 type RandExpCtor = new (pattern: RegExp | string, flags?: string) => RandExpInstance;
@@ -50,17 +53,6 @@ export function compileRegex(pattern: string, flags = ''): RegExp | null {
   }
 }
 
-/**
- * Reject patterns likely to cause catastrophic backtracking or oversized
- * output: a quantifier on a group that itself contains a quantifier (e.g.
- * `(a+)+`), or an explicit large repetition count (`{1000}` / `{1000,}`).
- */
-export function isSafeRegex(pattern: string): boolean {
-  if (/\([^()]*[+*?][^()]*\)[+*?{]/.test(pattern)) return false;
-  if (/\{\d{4,}/.test(pattern)) return false;
-  return true;
-}
-
 export function generateFromRegex(pattern: string): string | null {
   if (!isSafeRegex(pattern)) return null;
   try {
@@ -86,22 +78,22 @@ export function matchRule(rule: CustomRule, desc: FieldDescriptor, ctx: RuleMatc
   // urlPattern gates eligibility (scopes the rule to a site). If set and the
   // origin does not match, the rule does not apply at all.
   if (m.urlPattern) {
-    const re = compileRegex(m.urlPattern);
+    const re = safeCompile(m.urlPattern);
     const ok = re ? re.test(ctx.origin) : ctx.origin.includes(m.urlPattern);
     if (!ok) return false;
   }
 
   const conditions: boolean[] = [];
   if (m.field) {
-    const re = compileRegex(m.field);
+    const re = safeCompile(m.field);
     conditions.push(re ? re.test(desc.name ?? '') : false);
   }
   if (m.id) {
-    const re = compileRegex(m.id);
+    const re = safeCompile(m.id);
     conditions.push(re ? re.test(desc.id ?? '') : false);
   }
   if (m.label) {
-    const re = compileRegex(m.label);
+    const re = safeCompile(m.label);
     const hay = [desc.label, desc.placeholder, desc.ariaLabel].filter(Boolean).join(' ');
     conditions.push(re ? re.test(hay) : false);
   }
@@ -111,7 +103,9 @@ export function matchRule(rule: CustomRule, desc: FieldDescriptor, ctx: RuleMatc
   if (m.selector) {
     conditions.push(!!ctx.element && safeMatches(ctx.element, m.selector));
   }
-  if (conditions.length === 0) return false;
+  // No field condition: a urlPattern-scoped rule matches every field on the
+  // matching site; a rule with no conditions at all matches nothing.
+  if (conditions.length === 0) return !!m.urlPattern;
   return m.mode === 'all' ? conditions.every(Boolean) : conditions.some(Boolean);
 }
 

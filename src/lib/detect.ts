@@ -53,10 +53,32 @@ export function describeField(el: Element): FieldDescriptor {
     className: get('class'),
     ariaLabel: get('aria-label'),
     ariaLabelledby: get('aria-labelledby'),
+    label: resolveLabel(el),
     autocomplete: get('autocomplete'),
     dataFake: get('data-fake'),
     dataFillType: get('data-fill-type'),
   };
+}
+
+/** Resolve associated label text: <label for>, wrapping <label>, or aria-labelledby. */
+function resolveLabel(el: Element): string | undefined {
+  const labels = (el as HTMLInputElement).labels;
+  if (labels && labels.length) {
+    const t = labels[0]?.textContent ?? undefined;
+    if (t) return t.trim();
+  }
+  const wrapping = el.closest('label');
+  if (wrapping) {
+    const t = wrapping.textContent ?? undefined;
+    if (t) return t.trim();
+  }
+  const labelledby = el.getAttribute('aria-labelledby');
+  if (labelledby) {
+    const target = el.ownerDocument.getElementById(labelledby);
+    const t = target?.textContent ?? undefined;
+    if (t) return t.trim();
+  }
+  return undefined;
 }
 
 const REGEX_RULES: ReadonlyArray<readonly [RegExp, LogicalType]> = [

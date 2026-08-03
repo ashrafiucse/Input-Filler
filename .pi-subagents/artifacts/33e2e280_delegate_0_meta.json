@@ -1,0 +1,169 @@
+{
+  "runId": "33e2e280",
+  "agent": "delegate",
+  "task": "You are an independent CODE reviewer (correctness/bugs lens) for a TypeScript browser-extension project at D:\\Input Filler.\n\nRead these to understand the contract:\n- Plan: D:\\Input Filler\\docs\\plans\\2026-08-03-001-feat-cross-browser-input-filler-plan.md (the Requirements R1-R18, KTDs, and per-unit goals/verification)\nThen review the IMPLEMENTATION for correctness bugs:\n- D:\\Input Filler\\src\\lib\\orchestrate.ts (fill orchestration: skip gate, confirmation/agree-terms, page-level name consistency, no-form fallback, shadow/iframe discovery)\n- D:\\Input Filler\\src\\lib\\detect.ts, fillers.ts, rules.ts, settings.ts, generators.ts, text.ts, rng.ts, rules-ui.ts, popup-status.ts, background-actions.ts\n- D:\\Input Filler\\entrypoints\\background.ts, content.ts, popup\\main.ts, options\\main.ts\n\nHunt specifically for: logic errors, off-by-one/edge cases, incorrect event dispatch, incorrect skip logic, confirmation-field copy bugs, radio/select/checkbox mishandling, settings merge/migration bugs, message-contract mismatches between background/content/popup, and any behavior that contradicts an R-ID in the plan.\n\nRules: Be concrete and only report real issues (no style nits). For each finding: severity P0-P3, file + line/area, one-sentence issue, a concrete suggested fix. Verify by reading the actual code (don't speculate). If you find nothing material, say 'No material correctness findings.' Do not edit files. Return a concise numbered list.",
+  "exitCode": 0,
+  "usage": {
+    "input": 60521,
+    "output": 31314,
+    "cacheRead": 454144,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 14
+  },
+  "model": "zai/glm-5.2",
+  "attemptedModels": [
+    "zai/glm-5.2"
+  ],
+  "modelAttempts": [
+    {
+      "model": "zai/glm-5.2",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 60521,
+        "output": 31314,
+        "cacheRead": 454144,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 14
+      }
+    }
+  ],
+  "durationMs": 576095,
+  "toolCount": 30,
+  "launchContractDigest": "d694257056599874c271889757a697bef89d02df4848a3ab5530caf27a43b377",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:4aa3b241a0f236e8"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:4aa3b241a0f236e8"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only task wording"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only task wording"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "15 concrete correctness findings with file paths + areas and P0/P3 severities, each verified by reading the actual code (and #3/#6/#2/#4 confirmed via test-suite inspection, grep, and a node reproduction)."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "npx vitest run",
+          "result": "passed",
+          "summary": "91/91 tests pass; suite does not cover the reported edge cases (textarea+maxlength, multi-form radios, urlPattern-only rules, popup/content message routing)."
+        },
+        {
+          "command": "node -e (int overflow repro)",
+          "result": "passed",
+          "summary": "Confirmed int(0,10,4) can yield 12, exceeding max=10 (finding #3)."
+        },
+        {
+          "command": "grep label/htmlFor/labels in detect+orchestrate",
+          "result": "passed",
+          "summary": "Confirmed describeField never resolves an associated <label> (finding #6)."
+        }
+      ],
+      "validationOutput": [
+        "P1: popup runtime.sendMessage fans out to background + all content scripts -> double fill, cross-tab fill, popup status race (R1 + popup count contract).",
+        "P2: textarea/paragraph ignores maxlength -> AE4/R7 fail.",
+        "P2: int() exceeds max when step does not divide span -> number/range out of bounds (R10).",
+        "P2: radio group scoped to document -> multi-form same-name radios only fill first form (R1/R10).",
+        "P2: urlPattern-only rules pass validateRule but never match in matchRule -> dead rules (R16/R17).",
+        "P2: describeField never populates desc.label -> label match attribute dead in detect + rules (R9/R16).",
+        "P2: fillCurrentForm uses document.activeElement -> unreliable via popup/context menu, often fills whole page (R2).",
+        "P3: rules sync->local fallback can serve stale sync data; datetime/month/time/week get invalid date; confirm-copy keys off last value field; data-fake camelCase hints; select multiple not handled; isIgnoredOrigin regex over-match; clipToWordBoundary mid-word cut; mergeDefaults no array coercion."
+      ],
+      "residualRisks": [
+        "Finding #1 (WebExtension runtime.sendMessage fan-out) needs confirmation in the deferred live-browser QA; code matches the known double-handle pattern but cannot be proven in this environment.",
+        "No build/typecheck executed in this pass; fixes for #1/#2/#4 should add the currently-missing tests (multi-form radio scope, textarea maxlength, popup->content routing)."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "No changes made — review-only pass; findings returned as a list for the implementation owner.",
+      "reviewFindings": [
+        "P1: popup/main.ts:20 + background.ts:63 + content.ts:14 - runtime.sendMessage fans out to background and all content scripts -> double fill in active tab, unintended fills in other tabs, and popup status race (often shows 'Filled 0 fields'); fix by having popup use tabs.sendMessage to the active tab and/or tag popup->background messages the content script ignores.",
+        "P2: orchestrate.ts:194-195 - 'paragraph' branch returns 2-4 untrimmed sentences and never consults effectiveMaxLen; <textarea maxlength=40> (AE4) is over-filled; route textareas through dummyText(effectiveMaxLen).",
+        "P2: rng.ts:int - Math.round(span/step) lets int(0,10,4) return 12>max; number/range can exceed bounds (R10); use Math.floor and clamp to [min,max].",
+        "P2: fillers.ts:fillRadio - radio group queried on ownerDocument; multiple forms sharing a radio name only fill the first form (R1/R10); scope to el.form ?? closest('form').",
+        "P2: rules-ui.ts:validateRule vs rules.ts:matchRule - urlPattern-only rules validate but matchRule returns false when conditions.length===0; silently dead rules (R16/R17); align the two.",
+        "P2: detect.ts:describeField - desc.label is never resolved (<label for>/wrapping label/aria-labelledby); label match attribute is dead in detect + rules (R9/R16); resolve label text in describeField.",
+        "P2: orchestrate.ts:fillCurrentForm - relies on document.activeElement with no element passed from popup/context-menu; frequently resolves to <html> and fills the whole page (R2); remember last-focused field or pass the clicked target.",
+        "P3: rules.ts:saveRules/loadRules - sync->local fallback leaves stale sync rules+meta while loadRules prefers sync; clear sync on local fallback.",
+        "P3: detect.ts:mapType - datetime-local/month/time/week map to 'date' and receive invalid YYYY-MM-DD; generate per-type format or skip.",
+        "P3: orchestrate.ts:fillOne - confirmation copy uses last value field (not same-type source) and state spans all forms; confirm can copy wrong value (R12); track per-type last value.",
+        "P3: detect.ts:detectType - data-fake hint returned verbatim; camelCase generator names (firstName) miss snake_case generateValue (R9); normalize hints.",
+        "P3: fillers.ts:fillSelect - sets el.value (no-op for <select multiple>); never fills multiple selects (R10); set option.selected.",
+        "P3: settings.ts:isIgnoredOrigin - literal domains compiled as unanchored regex (/example.com/ matches example_com); escape literals (R4).",
+        "P3: text.ts:clipToWordBoundary - returns a mid-word slice when budget < first token (R7/AE4); return a whole word or empty.",
+        "P3: settings.ts:mergeDefaults - non-array stored list fields survive and make matchesAny throw; coerce to arrays in merge/migrate (U5)."
+      ],
+      "manualNotes": "Existing 91 tests pass but lack coverage for the highest-impact findings (textarea+maxlength per AE4, multi-form radio scope, urlPattern-only rules, and popup/content message routing); I recommend adding tests alongside any fixes. Severity note: finding #1 could be argued P0 given it fills unintended tabs, but I rated P1 since fills still occur without crashing."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "not-applicable",
+      "expected": false,
+      "attempted": false
+    }
+  },
+  "transcriptPath": "D:\\Input Filler\\.pi-subagents\\artifacts\\33e2e280_delegate_0_transcript.jsonl",
+  "timestamp": 1785749732696
+}
