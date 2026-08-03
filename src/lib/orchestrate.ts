@@ -315,7 +315,7 @@ export function clearAllForms(doc: Document): number {
   let cleared = 0;
   for (const el of discoverFields(doc.body)) {
     const input = el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    if (input.disabled || (input as HTMLInputElement).readOnly) continue;
+    if (input.type === 'hidden' || input.disabled || (input as HTMLInputElement).readOnly) continue;
     if (input.type === 'checkbox' || input.type === 'radio') {
       if ((input as HTMLInputElement).checked) {
         (input as HTMLInputElement).checked = false;

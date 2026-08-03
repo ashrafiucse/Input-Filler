@@ -188,6 +188,21 @@ describe('password and email domain', () => {
   });
 });
 
+describe('hidden token fields are preserved', () => {
+  it('fill does not touch hidden CSRF/token fields', () => {
+    setDoc(`<form><input name="name" type="text"><input name="csrf" type="hidden" value="tok123"></form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('[name=csrf]') as HTMLInputElement).value).toBe('tok123');
+    expect((document.querySelector('[name=name]') as HTMLInputElement).value.length).toBeGreaterThan(0);
+  });
+  it('clear does not wipe hidden CSRF/token fields', () => {
+    setDoc(`<form><input name="name" type="text" value="x"><input name="csrf" type="hidden" value="tok123"></form>`);
+    clearAllForms(document);
+    expect((document.querySelector('[name=name]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('[name=csrf]') as HTMLInputElement).value).toBe('tok123');
+  });
+});
+
 describe('password / confirm / checkboxes', () => {
   it('fills password + confirm with the same value and checks every checkbox', () => {
     setDoc(`<form>
