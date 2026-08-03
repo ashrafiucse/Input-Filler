@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,7 +7,14 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div id="app">Input Filler</div>
+    <header><h1>Input Filler</h1></header>
+    <main>
+      <button id="fill-all" data-action="fillAll" class="primary">Fill all forms</button>
+      <button id="fill-form" data-action="fillForm">Fill this form</button>
+      <button id="clear" data-action="clear">Clear</button>
+      <button id="options" class="link">Settings</button>
+    </main>
+    <footer id="status" class="status ready">Ready</footer>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
