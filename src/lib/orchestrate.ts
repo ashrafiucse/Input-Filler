@@ -55,7 +55,28 @@ interface PageContext {
 }
 
 export function discoverFields(root: ParentNode): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>('input,textarea,select'));
+  const out: HTMLElement[] = [];
+  collectFields(root, out);
+  return out;
+}
+
+/**
+ * Recursively collect fields, descending into open shadow roots and same-origin
+ * iframe documents so forms built with web components or frames are filled too.
+ */
+function collectFields(root: ParentNode, out: HTMLElement[]): void {
+  for (const el of root.querySelectorAll<HTMLElement>('input,textarea,select')) out.push(el);
+  for (const el of root.querySelectorAll<HTMLElement>('*')) {
+    if (el.shadowRoot) collectFields(el.shadowRoot, out);
+  }
+  for (const iframe of root.querySelectorAll<HTMLIFrameElement>('iframe')) {
+    try {
+      const doc = iframe.contentDocument;
+      if (doc?.body) collectFields(doc.body, out);
+    } catch {
+      // Cross-origin iframe: cannot access; skip.
+    }
+  }
 }
 
 function fieldHaystack(desc: ReturnType<typeof describeField>): string {

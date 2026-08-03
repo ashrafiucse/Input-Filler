@@ -152,3 +152,32 @@ describe('clearAllForms', () => {
     expect((document.querySelector('[name=c]') as HTMLInputElement).checked).toBe(false);
   });
 });
+
+describe('shadow DOM and same-origin iframes (U11)', () => {
+  it('fills a field inside an open shadow root', () => {
+    setDoc('');
+    const host = document.createElement('div');
+    document.body.append(host);
+    const sr = host.attachShadow({ mode: 'open' });
+    sr.innerHTML = '<input name="shadow_email" type="email">';
+    const res = fillAllForms(document, ctx());
+    expect(res.filled).toBeGreaterThanOrEqual(1);
+    const email = sr.querySelector('input') as HTMLInputElement;
+    expect(email.value).toMatch(/@/);
+  });
+
+  it('fills a field inside a same-origin iframe document', () => {
+    setDoc('');
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const doc = iframe.contentDocument;
+    expect(doc).toBeTruthy();
+    if (doc) {
+      doc.body.innerHTML = '<input name="iframe_name" type="text">';
+    }
+    const res = fillAllForms(document, ctx());
+    expect(res.filled).toBeGreaterThanOrEqual(1);
+    const input = doc?.body.querySelector('input') as HTMLInputElement;
+    expect(input.value.length).toBeGreaterThan(0);
+  });
+});
