@@ -78,7 +78,7 @@ describe('skip gate (AE3)', () => {
 
   it('skips already-filled fields when configured', () => {
     setDoc(`<form><input name="a" type="text" value="prefilled"><input name="b" type="text"></form>`);
-    const res = fillAllForms(document, ctx({ fields: { ...DEFAULT_SETTINGS.fields } }));
+    const res = fillAllForms(document, ctx({ fields: { ...DEFAULT_SETTINGS.fields, ignoreFieldsWithContent: true } }));
     expect(res.filled).toBe(1);
     expect((document.querySelector('[name=a]') as HTMLInputElement).value).toBe('prefilled');
   });
@@ -139,6 +139,21 @@ describe('fillCurrentForm', () => {
     const res = fillCurrentForm(document, document.activeElement, ctx());
     expect(res.filled).toBe(1);
     expect(loose.value.length).toBeGreaterThan(0);
+  });
+});
+
+describe('fresh data each fill', () => {
+  it('a second click re-fills with new values', () => {
+    setDoc(`<form><input name="q" type="text"><textarea name="bio"></textarea></form>`);
+    const base = { settings: mergeDefaults(DEFAULT_SETTINGS), rules: [] as never[], origin: 'https://x' };
+    fillAllForms(document, { ...base, rng: createRng(1) });
+    const q1 = (document.querySelector('[name=q]') as HTMLInputElement).value;
+    const t1 = (document.querySelector('[name=bio]') as HTMLTextAreaElement).value;
+    fillAllForms(document, { ...base, rng: createRng(2) });
+    const q2 = (document.querySelector('[name=q]') as HTMLInputElement).value;
+    const t2 = (document.querySelector('[name=bio]') as HTMLTextAreaElement).value;
+    expect(q2).not.toBe(q1);
+    expect(t2).not.toBe(t1);
   });
 });
 
