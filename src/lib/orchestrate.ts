@@ -25,6 +25,7 @@ import {
   number as genNumber,
   password as genPassword,
   phone,
+  sentence,
   state,
   street,
   url as genUrl,
@@ -117,14 +118,6 @@ function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeField>, set
   return false;
 }
 
-function effectiveMaxLen(el: HTMLElement, settings: FillerSettings): number {
-  const cap = settings.fields.maxLength;
-  const ml = (el as HTMLInputElement).maxLength;
-  // maxLength === -1 means "no limit" in HTMLInputElement.
-  const fieldCap = ml && ml > 0 ? ml : Infinity;
-  return Math.max(1, Math.min(cap, fieldCap));
-}
-
 function numConstraint(el: HTMLInputElement): { min: number; max: number; step: number } {
   const min = el.min !== '' && Number.isFinite(Number(el.min)) ? Number(el.min) : 0;
   const max = el.max !== '' && Number.isFinite(Number(el.max)) ? Number(el.max) : 100;
@@ -190,16 +183,25 @@ function generateValue(
         ? settings.password.fixedValue
         : genPassword({ length: settings.password.length, rng });
     case 'paragraph': {
-      // Textareas honor their own maxlength (trimmed at a sentence boundary);
-      // with no limit, a short multi-sentence budget keeps output readable.
+      // Textareas get a readable multi-sentence paragraph, capped by the
+      // field's own maxlength or the configured default.
       const fieldMax = (el as HTMLTextAreaElement).maxLength;
-      const budget = fieldMax && fieldMax > 0 ? fieldMax : 240;
-      return dummyText(Math.min(budget, 240), theme, rng);
+      const cap = settings.fields.maxLength;
+      const budget = fieldMax && fieldMax > 0 ? Math.min(fieldMax, cap) : cap;
+      return dummyText(budget, theme, rng);
     }
     case 'sentence':
     case 'text':
-    default:
-      return dummyText(effectiveMaxLen(el, settings), theme, rng);
+    default: {
+      // A single full readable corpus sentence; trim only when the field's own
+      // maxlength is tighter than the sentence (no mid-word cut).
+      const fieldMax = (el as HTMLInputElement).maxLength;
+      const one = sentence(theme, rng);
+      if (fieldMax && fieldMax > 0 && one.length > fieldMax) {
+        return dummyText(fieldMax, theme, rng);
+      }
+      return one;
+    }
   }
 }
 

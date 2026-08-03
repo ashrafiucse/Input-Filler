@@ -142,6 +142,16 @@ describe('fillCurrentForm', () => {
   });
 });
 
+describe('generic text fields get readable sentences', () => {
+  it('a bare text input receives a full readable corpus sentence', () => {
+    setDoc(`<form><input name="query" type="text"></form>`);
+    fillAllForms(document, ctx());
+    const v = (document.querySelector('[name=query]') as HTMLInputElement).value;
+    expect(v.length).toBeGreaterThan(15);
+    expect(v.endsWith('.')).toBe(true);
+  });
+});
+
 describe('clearAllForms', () => {
   it('resets filled values and states', () => {
     setDoc(`<form><input name="a" type="text"><input name="c" type="checkbox"></form>`);

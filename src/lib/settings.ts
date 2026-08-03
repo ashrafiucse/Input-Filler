@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
     confirmationFields: ['confirm', 'reenter', 'retype', 'repeat', 'secondary'],
     agreeToTermsFields: ['agree', 'terms', 'conditions'],
     matchFieldsUsing: ALL_MATCH_ATTRS,
-    maxLength: 50,
+    maxLength: 200,
   },
   general: {
     triggerEvents: true,
