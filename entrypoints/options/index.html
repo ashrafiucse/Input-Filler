@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Input Filler — Settings</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <h1>Input Filler Settings</h1>
+
+    <section>
+      <h2>Password</h2>
+      <label>Mode <select id="pw-mode"><option value="random">Random</option><option value="fixed">Fixed</option></select></label>
+      <label>Length <input id="pw-length" type="number" min="4" max="64" /></label>
+      <label>Fixed value <input id="pw-fixed" type="text" placeholder="use this when mode = fixed" /></label>
+      <label class="row"><input id="pw-log" type="checkbox" /> Log generated passwords to DevTools</label>
+    </section>
+
+    <section>
+      <h2>Field options</h2>
+      <label>Ignored fields (comma) <input id="f-ignore" type="text" /></label>
+      <label>Confirmation fields (comma) <input id="f-confirm" type="text" /></label>
+      <label>Agree-to-terms fields (comma) <input id="f-agree" type="text" /></label>
+      <label>Default max length <input id="f-maxlen" type="number" min="1" max="500" /></label>
+      <label class="row"><input id="f-skiphidden" type="checkbox" /> Skip hidden / invisible fields</label>
+      <label class="row"><input id="f-skipfilled" type="checkbox" /> Skip already-filled fields</label>
+    </section>
+
+    <section>
+      <h2>General</h2>
+      <label class="row"><input id="g-events" type="checkbox" /> Trigger input/change events (SPA support)</label>
+      <label class="row"><input id="g-menu" type="checkbox" /> Add right-click context menu</label>
+      <label>Ignored domains (regex, comma) <input id="g-domains" type="text" /></label>
+      <label>Text theme <select id="g-theme-text">
+        <option value="general">general</option><option value="business">business</option>
+        <option value="tech">tech</option><option value="casual">casual</option>
+        <option value="support">support</option><option value="reviews">reviews</option>
+      </select></label>
+      <label>UI theme <select id="g-theme-ui"><option value="light">light</option><option value="dark">dark</option></select></label>
+    </section>
+
+    <p id="save-status" class="save-status"></p>
+
+    <section>
+      <h2>Custom field rules</h2>
+      <div class="rules-toolbar">
+        <button id="rule-add">Add rule</button>
+        <button id="rule-export">Export</button>
+        <label class="link">Import<input id="rule-import" type="file" accept="application/json" hidden /></label>
+      </div>
+      <ul id="rules-list"></ul>
+      <p id="rules-empty" class="empty">No custom rules yet. <button id="rule-add-empty" class="link">Add your first rule</button></p>
+
+      <form id="rule-editor" hidden>
+        <h3 id="editor-title">Add rule</h3>
+        <label>Name <input id="re-name" type="text" /></label>
+        <label>Match mode <select id="re-mode"><option value="any">any</option><option value="all">all</option></select></label>
+        <label>Field (regex) <input id="re-field" type="text" /></label>
+        <label>Id (regex) <input id="re-id" type="text" /></label>
+        <label>Label (regex) <input id="re-label" type="text" /></label>
+        <label>Type <input id="re-type" type="text" placeholder="email, text, tel..." /></label>
+        <label>CSS selector <input id="re-selector" type="text" /></label>
+        <label>Site pattern (regex) <input id="re-url" type="text" placeholder="optional, e.g. staging" /></label>
+        <label>Fill kind <select id="re-kind">
+          <option value="builtin">builtin generator</option><option value="static">static text</option>
+          <option value="template">template</option><option value="list">list</option><option value="regex">regex</option>
+        </select></label>
+        <label>Fill value <input id="re-value" type="text" /></label>
+        <ul id="re-errors" class="errors"></ul>
+        <div class="editor-actions">
+          <button id="re-save" class="primary">Save</button>
+          <button id="re-cancel" class="link">Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

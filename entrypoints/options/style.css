@@ -1,0 +1,83 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --fg: #1b1b1f;
+  --muted: #6b6b76;
+  --border: #e2e2e8;
+  --accent: #2f6fd8;
+  --section-bg: #f7f7fa;
+}
+[data-theme='dark'] {
+  --bg: #1b1b1f;
+  --fg: #ececf1;
+  --muted: #9a9aa5;
+  --border: #33333c;
+  --accent: #4c8dff;
+  --section-bg: #23232a;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  padding: 24px;
+  max-width: 720px;
+}
+h1 { font-size: 22px; margin-top: 0; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+section {
+  background: var(--section-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+label.row { display: flex; align-items: center; gap: 8px; }
+input[type='text'], input[type='number'], select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+input[type='checkbox'] { width: auto; }
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.link { background: transparent; border: none; color: var(--accent); padding: 4px; }
+.save-status { font-size: 12px; min-height: 16px; margin: 0 0 12px; }
+.save-status.ok { color: #1f9d55; }
+.save-status.error { color: #d12; }
+.save-status.busy { color: var(--accent); }
+.rules-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+ul { list-style: none; padding: 0; margin: 0; }
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.rule span { flex: 1; }
+.empty { color: var(--muted); font-size: 13px; }
+.errors { color: #d12; font-size: 12px; margin: 4px 0; }
+.editor-actions { display: flex; gap: 8px; }
+#rule-editor { margin-top: 12px; }
