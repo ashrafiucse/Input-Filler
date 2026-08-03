@@ -60,3 +60,14 @@ describe('element fallback', () => {
     expect(detectType({ tag: 'select', name: 'misc' })).toBe('select');
   });
 });
+
+describe('textareas always yield readable text', () => {
+  it('a textarea with a username-like name is detected as paragraph, not username', () => {
+    expect(detectType({ tag: 'textarea', name: 'user_message' })).toBe('paragraph');
+    expect(detectType({ tag: 'textarea', name: 'account_notes' })).toBe('paragraph');
+    expect(detectType({ tag: 'textarea', name: 'login_hint' })).toBe('paragraph');
+  });
+  it('a textarea still honors an explicit data-fake hint', () => {
+    expect(detectType({ tag: 'textarea', name: 'user_message', dataFake: 'email' })).toBe('email');
+  });
+});

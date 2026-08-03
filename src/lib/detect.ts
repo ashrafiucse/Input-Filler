@@ -219,6 +219,11 @@ export function detectType(
     if (t) return t;
   }
 
+  // 3b. Textareas hold free-form text, so skip the name/id regexes (which target
+  //     single-line fields like username/company/login) and fill readable text.
+  //     An explicit data-fake hint or autocomplete above still wins.
+  if (desc.tag === 'textarea') return 'paragraph';
+
   // 4. Regex over the configured match attributes.
   const hay = buildHaystack(desc, matchAttrs);
   for (const [re, type] of REGEX_RULES) {
