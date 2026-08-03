@@ -188,6 +188,25 @@ describe('password and email domain', () => {
   });
 });
 
+describe('password / confirm / checkboxes', () => {
+  it('fills password + confirm with the same value and checks every checkbox', () => {
+    setDoc(`<form>
+      <input name="email" type="email">
+      <input name="password" type="password">
+      <input name="confirm_password" type="password">
+      <input name="newsletter" type="checkbox">
+      <input name="agree_terms" type="checkbox">
+    </form>`);
+    fillAllForms(document, ctx());
+    const pw = (document.querySelector('[name=password]') as HTMLInputElement).value;
+    const cpw = (document.querySelector('[name=confirm_password]') as HTMLInputElement).value;
+    expect(pw.length).toBeGreaterThanOrEqual(8);
+    expect(cpw).toBe(pw);
+    expect((document.querySelector('[name=newsletter]') as HTMLInputElement).checked).toBe(true);
+    expect((document.querySelector('[name=agree_terms]') as HTMLInputElement).checked).toBe(true);
+  });
+});
+
 describe('clearAllForms', () => {
   it('resets filled values and states', () => {
     setDoc(`<form><input name="a" type="text"><input name="c" type="checkbox"></form>`);

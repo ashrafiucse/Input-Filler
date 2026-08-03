@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
     ignoreFields: ['captcha', 'hipinputtext'],
     ignoreHiddenInvisible: true,
     ignoreFieldsWithContent: false,
-    confirmationFields: ['confirm', 'reenter', 'retype', 'repeat', 'secondary'],
+    confirmationFields: ['confirm', 'reenter', 'retype', 'repeat', 'secondary', 'verify'],
     agreeToTermsFields: ['agree', 'terms', 'conditions'],
     matchFieldsUsing: ALL_MATCH_ATTRS,
     maxLength: 200,

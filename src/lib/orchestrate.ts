@@ -213,7 +213,7 @@ function fillOne(
   origin: string,
   page: PageContext,
   rng: Rng,
-  state: { lastValue: string | undefined },
+  state: { lastValue: string | undefined; lastPassword: string | undefined },
 ): { filled: boolean } {
   const desc = describeField(el);
   if (shouldSkip(el, desc, settings)) return { filled: false };
@@ -226,9 +226,10 @@ function fillOne(
     return { filled: true };
   }
 
-  // Confirmation fields copy the immediately preceding filled value.
-  if (matchesAny(desc, settings.fields.confirmationFields) && state.lastValue !== undefined) {
-    fillField(el, detectType(desc, settings.fields.matchFieldsUsing), state.lastValue, { triggerEvents: trigger });
+  // Confirmation fields copy the last password (preferred) or the last filled value.
+  const confirmValue = state.lastPassword ?? state.lastValue;
+  if (matchesAny(desc, settings.fields.confirmationFields) && confirmValue !== undefined) {
+    fillField(el, detectType(desc, settings.fields.matchFieldsUsing), confirmValue, { triggerEvents: trigger });
     return { filled: true };
   }
 
@@ -258,6 +259,7 @@ function fillOne(
   // Track the last filled value for confirmation fields. Mechanical types have
   // no string value to copy.
   if (!isMechanicalType(type) && value !== undefined) state.lastValue = value;
+  if (type === 'password' && value !== undefined) state.lastPassword = value;
 
   if (type === 'password' && settings.password.logToConsole) {
     // Echo generated password to DevTools for debugging (matches origin behavior).
@@ -271,7 +273,7 @@ function fillOne(
 function fillScope(scope: ParentNode, ctx: FillContext): FillResult {
   const rng = ctx.rng ?? defaultRng;
   const page: PageContext = {};
-  const state = { lastValue: undefined as string | undefined };
+  const state = { lastValue: undefined as string | undefined, lastPassword: undefined as string | undefined };
   let filled = 0;
   let skipped = 0;
   for (const el of discoverFields(scope)) {
