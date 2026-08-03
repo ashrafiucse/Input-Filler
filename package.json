@@ -12,10 +12,12 @@
     "zip": "wxt zip",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "wxt prepare && tsc --noEmit"
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "icons": "node scripts/make-icons.mjs"
   },
   "devDependencies": {
     "jsdom": "^25.0.0",
+    "sharp": "^0.35.3",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0",
     "wxt": "^0.21.0"
