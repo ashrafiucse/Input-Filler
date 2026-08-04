@@ -56,9 +56,8 @@ export function randomSentence(theme: TextTheme = 'general', rng: Rng = defaultR
  * within a call. Falls back to a grammatical sentence when no corpus sentence
  * fits, and to a single readable word for very small budgets.
  */
-export function dummyText(maxLen: number, theme: TextTheme = 'general', rng: Rng = defaultRng): string {
+export function dummyTextFromBank(maxLen: number, bank: readonly string[], rng: Rng = defaultRng): string {
   if (maxLen <= 0) return '';
-  const bank = bankFor(theme);
 
   // Fisher-Yates shuffle of indices for a fresh, repeat-free order.
   const order = bank.map((_, i) => i);
@@ -86,4 +85,9 @@ export function dummyText(maxLen: number, theme: TextTheme = 'general', rng: Rng
   const clipped = clipToWordBoundary(g, maxLen);
   if (clipped) return clipped;
   return clipToWordBoundary(pick(GRAMMAR_OBJECTS, rng), maxLen);
+}
+
+/** Readable text fitted to `maxLen`, drawn from the theme's corpus bank. */
+export function dummyText(maxLen: number, theme: TextTheme = 'general', rng: Rng = defaultRng): string {
+  return dummyTextFromBank(maxLen, bankFor(theme), rng);
 }

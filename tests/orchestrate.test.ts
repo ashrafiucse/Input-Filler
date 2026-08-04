@@ -116,6 +116,20 @@ describe('honeypot / wrapper-hidden fields', () => {
   });
 });
 
+describe('field-aware free text', () => {
+  it('fills a field with text that matches its label intent', () => {
+    setDoc(`<form>
+      <input name="course_description" type="text">
+      <textarea name="feedback"></textarea>
+    </form>`);
+    fillAllForms(document, ctx());
+    const course = (document.querySelector('[name=course_description]') as HTMLInputElement).value.toLowerCase();
+    const feedback = (document.querySelector('[name=feedback]') as HTMLTextAreaElement).value.toLowerCase();
+    expect(course).toMatch(/course|module|quiz|lesson|syllabus|learner|enroll|gradebook|assignment|rubric|completion/);
+    expect(feedback).toMatch(/flow|clarity|instruction|layout|delight|click|default|rough|edge|smooth/);
+  });
+});
+
 describe('confirmation + agree-to-terms (AE2)', () => {
   it('confirm field copies the preceding value; agree-to-terms is checked', () => {
     setDoc(`

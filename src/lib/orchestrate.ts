@@ -16,7 +16,6 @@ import {
   company as genCompany,
   country,
   date,
-  dummyText,
   email,
   firstName,
   fullName,
@@ -25,7 +24,6 @@ import {
   number as genNumber,
   password as genPassword,
   phone,
-  sentence,
   state,
   street,
   url as genUrl,
@@ -34,6 +32,7 @@ import {
 } from './generators';
 import { type Rng, defaultRng } from './rng';
 import type { TextTheme } from './text';
+import { fieldSentence, fieldParagraph } from './field-text';
 
 export interface FillContext {
   settings: FillerSettings;
@@ -119,7 +118,7 @@ function hasContent(el: HTMLElement, desc: ReturnType<typeof describeField>): bo
   return !!(el as HTMLInputElement | HTMLTextAreaElement).value;
 }
 
-function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeField>, settings: FillerSettings): boolean {
+export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeField>, settings: FillerSettings): boolean {
   if (desc.dataFake === 'skip' || desc.dataFillType === 'skip') return true;
   const input = el as HTMLInputElement;
   if (desc.type === 'hidden' || input.disabled || input.readOnly) return true;
@@ -140,6 +139,7 @@ function numConstraint(el: HTMLInputElement): { min: number; max: number; step: 
 function generateValue(
   type: string,
   el: HTMLElement,
+  desc: ReturnType<typeof describeField>,
   settings: FillerSettings,
   page: PageContext,
   rng: Rng,
@@ -200,7 +200,7 @@ function generateValue(
       const fieldMax = (el as HTMLTextAreaElement).maxLength;
       const cap = settings.fields.maxLength;
       const budget = fieldMax && fieldMax > 0 ? Math.min(fieldMax, cap) : cap;
-      return dummyText(budget, theme, rng);
+      return fieldParagraph(desc, budget, theme, rng);
     }
     case 'sentence':
     case 'text':
@@ -208,9 +208,9 @@ function generateValue(
       // A single full readable corpus sentence; trim only when the field's own
       // maxlength is tighter than the sentence (no mid-word cut).
       const fieldMax = (el as HTMLInputElement).maxLength;
-      const one = sentence(theme, rng);
+      const one = fieldSentence(desc, theme, rng);
       if (fieldMax && fieldMax > 0 && one.length > fieldMax) {
-        return dummyText(fieldMax, theme, rng);
+        return fieldParagraph(desc, fieldMax, theme, rng);
       }
       return one;
     }
@@ -257,12 +257,12 @@ function fillOne(
         value = resolveFill(matched, { origin, element: el, rng }) ?? undefined;
       } catch {
         // A malformed rule must not abort the whole fill pass; fall back to auto.
-        value = generateValue(type, el, settings, page, rng);
+        value = generateValue(type, el, desc, settings, page, rng);
       }
     }
   } else {
     type = detectType(desc, settings.fields.matchFieldsUsing);
-    value = generateValue(type, el, settings, page, rng);
+    value = generateValue(type, el, desc, settings, page, rng);
   }
 
   fillField(el, type, value, { triggerEvents: trigger, rng });
