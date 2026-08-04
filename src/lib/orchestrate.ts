@@ -92,12 +92,23 @@ function matchesAny(desc: ReturnType<typeof describeField>, tokens: string[]): b
 }
 
 function isVisible(el: HTMLElement): boolean {
-  if (el.hidden) return false;
-  const style = (el as HTMLElement).style;
-  if (style && style.display === 'none') return false;
-  if (typeof getComputedStyle === 'function') {
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+  // A field is not visible if it OR any ancestor is hidden (the `hidden`
+  // attribute, display:none, or visibility:hidden). We must walk ancestors
+  // because a field's OWN computed display stays e.g. 'inline-block' even when
+  // a wrapper <div> is display:none — which is exactly how honeypot anti-bot
+  // fields are hidden. Checking only the element misses them, they get filled,
+  // and the server's bot detection rejects the signup (blank screen).
+  if (typeof el.checkVisibility === 'function') {
+    return el.checkVisibility();
+  }
+  let node: HTMLElement | null = el;
+  while (node) {
+    if (node.hidden) return false;
+    if (typeof getComputedStyle === 'function') {
+      const cs = getComputedStyle(node);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+    }
+    node = node.parentElement;
   }
   return true;
 }

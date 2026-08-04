@@ -84,6 +84,38 @@ describe('skip gate (AE3)', () => {
   });
 });
 
+describe('honeypot / wrapper-hidden fields', () => {
+  it('does not fill fields hidden by a display:none wrapper (anti-bot honeypot)', () => {
+    // Mirrors the Spatie Laravel-Honeypot layout: a wrapper <div> with
+    // display:none holds a decoy text field + an encrypted-timestamp field. The
+    // inputs themselves have NO hidden styling — only the wrapper does — so a
+    // naive element-only visibility check sees them as visible and fills them,
+    // tripping server-side bot detection and breaking signup. Visibility must
+    // account for ancestors.
+    setDoc(`
+      <form id="register-form">
+        <input type="hidden" name="_token" value="csrf">
+        <div style="display:none" aria-hidden="true">
+          <input name="phone_number__xyz" type="text" tabindex="-1" value="">
+          <input name="valid_from" type="text" value="eyJpdiI6">
+        </div>
+        <input name="first_name" type="text">
+        <input name="email" type="email">
+        <input name="password" type="password">
+      </form>
+    `);
+    fillAllForms(document, ctx());
+    const q = (n: string) => document.querySelector(`[name="${n}"]`) as HTMLInputElement;
+    // honeypot + encrypted timestamp must be left untouched
+    expect(q('phone_number__xyz').value).toBe('');
+    expect(q('valid_from').value).toBe('eyJpdiI6');
+    // real fields are still filled
+    expect(q('first_name').value.length).toBeGreaterThan(0);
+    expect(q('email').value).toMatch(/@/);
+    expect(q('password').value.length).toBeGreaterThan(0);
+  });
+});
+
 describe('confirmation + agree-to-terms (AE2)', () => {
   it('confirm field copies the preceding value; agree-to-terms is checked', () => {
     setDoc(`
