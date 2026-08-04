@@ -135,6 +135,13 @@ describe('dummyText readability engine', () => {
     const sample = new Set(Array.from({ length: 100 }, () => dummyText(200, 'tech')));
     expect(sample.size).toBeGreaterThan(5);
   });
+  it('lms theme produces readable LMS-themed text', () => {
+    expect(CORPUS.lms.length).toBeGreaterThan(0);
+    const out = dummyText(300, 'lms');
+    expect(out.length).toBeGreaterThan(0);
+    const sample = new Set(Array.from({ length: 100 }, () => dummyText(200, 'lms')));
+    expect(sample.size).toBeGreaterThan(5);
+  });
 });
 
 describe('builtin generator registry', () => {

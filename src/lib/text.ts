@@ -10,8 +10,9 @@ import casual from './corpus/casual.json';
 import support from './corpus/support.json';
 import reviews from './corpus/reviews.json';
 import general from './corpus/general.json';
+import lms from './corpus/lms.json';
 
-export type TextTheme = 'general' | 'business' | 'tech' | 'casual' | 'support' | 'reviews';
+export type TextTheme = 'general' | 'business' | 'tech' | 'casual' | 'support' | 'reviews' | 'lms';
 
 export const CORPUS: Record<TextTheme, readonly string[]> = {
   general,
@@ -20,6 +21,7 @@ export const CORPUS: Record<TextTheme, readonly string[]> = {
   casual,
   support,
   reviews,
+  lms,
 };
 
 const GRAMMAR_SUBJECTS = ['The team', 'Management', 'The group', 'Leadership', 'The committee', 'Staff', 'The panel'];
