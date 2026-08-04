@@ -98,6 +98,49 @@ describe('constrained types', () => {
   });
 });
 
+describe('framework-controlled inputs', () => {
+  it('registers the value via the native setter so a React-style tracker does not drop it', () => {
+    // React installs a value tracker on controlled inputs that records every
+    // value set THROUGH THE NODE. When a filler assigns `el.value = x` directly,
+    // the tracker is already in sync by the time the `input` event fires, so
+    // React's change detection treats it as a no-op and the controlled state
+    // never updates — the field looks filled but the framework submits an empty
+    // value (the blank screen after submit on signup forms). Setting the value
+    // through the native prototype setter bypasses the tracker, so the dispatched
+    // `input` event registers as a real change. This is the same technique the
+    // Fake Filler extension uses (and why it works on the same form).
+    set('<input id="a" type="text">');
+    const el = document.getElementById('a') as HTMLInputElement;
+
+    const proto = HTMLInputElement.prototype;
+    const nativeGet = Object.getOwnPropertyDescriptor(proto, 'value')!.get!;
+    const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')!.set!;
+
+    // Framework "value tracker": remembers any value set through the node.
+    let trackerValue = '';
+    Object.defineProperty(el, 'value', {
+      configurable: true,
+      get: nativeGet,
+      set(v) {
+        nativeSet.call(this, v);
+        trackerValue = String(v); // a set through the node is "seen" by the tracker
+      },
+    });
+
+    // Framework input handler (models React's updateValueIfChanged): accept a
+    // value only if the tracker does NOT already know about it.
+    let frameworkState = '';
+    el.addEventListener('input', () => {
+      const current = nativeGet.call(el);
+      if (current !== trackerValue) frameworkState = current;
+    });
+
+    fillField(el, 'email', 'eleanor@example.com');
+
+    expect(frameworkState).toBe('eleanor@example.com');
+  });
+});
+
 describe('robustness', () => {
   it('filling twice does not throw', () => {
     set('<input id="x" type="text">');

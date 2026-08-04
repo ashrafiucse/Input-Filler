@@ -26,9 +26,29 @@ function dispatch(el: Element, types: ReadonlyArray<'input' | 'change' | 'click'
   }
 }
 
+function setNativeValue(
+  el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  value: string,
+): void {
+  // Frameworks (React/Vue/Svelte) track input values in their own store and
+  // install a value tracker on controlled elements. Assigning `el.value = x`
+  // directly is "seen" by that tracker, so by the time the `input` event fires
+  // the framework's change detection treats it as a no-op — the field looks
+  // filled but the controlled state stays empty and the form submits an empty
+  // value (the blank-screen-after-submit bug on SPA signup forms). Setting the
+  // value through the native prototype setter bypasses the instance tracker, so
+  // the dispatched `input`/`change` events register as a real change.
+  const proto =
+    el instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : el instanceof HTMLSelectElement
+        ? HTMLSelectElement.prototype
+        : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, value);
+}
+
 function setValue(el: HTMLElement, value: string): void {
-  // Both HTMLInputElement and HTMLTextAreaElement expose a writable `.value`.
-  (el as HTMLInputElement).value = value;
+  setNativeValue(el as HTMLInputElement, value);
 }
 
 let radioCounter = 0;
@@ -66,7 +86,7 @@ function fillSelect(el: HTMLSelectElement, trigger: boolean, rng: Rng): void {
   const valid = Array.from(el.options).filter((o) => !o.disabled && o.value !== '');
   if (valid.length === 0) return;
   const target = pick(valid, rng);
-  el.value = target.value;
+  setNativeValue(el, target.value);
   if (trigger) dispatch(el, ['input', 'change']);
 }
 
