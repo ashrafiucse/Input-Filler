@@ -33,6 +33,7 @@ export interface FillerSettings {
     textTheme: TextTheme;
     theme: 'light' | 'dark';
     emailDomain: string;
+    useOnDeviceAI: boolean;
   };
   settingsVersion: number;
 }
@@ -69,6 +70,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
     textTheme: 'business',
     theme: 'light',
     emailDomain: 'gmail.com',
+    useOnDeviceAI: false,
   },
   settingsVersion: SETTINGS_VERSION,
 };
@@ -112,6 +114,7 @@ export function mergeDefaults(raw: unknown): FillerSettings {
       textTheme: g.textTheme ?? d.general.textTheme,
       theme: g.theme === 'dark' ? 'dark' : g.theme === 'light' ? 'light' : d.general.theme,
       emailDomain: typeof g.emailDomain === 'string' && g.emailDomain.trim() ? g.emailDomain.trim() : d.general.emailDomain,
+      useOnDeviceAI: typeof g.useOnDeviceAI === 'boolean' ? g.useOnDeviceAI : d.general.useOnDeviceAI,
     },
     settingsVersion: SETTINGS_VERSION,
   };
