@@ -52,7 +52,7 @@ const ALL_MATCH_ATTRS: MatchAttribute[] = [
 ];
 
 export const DEFAULT_SETTINGS: FillerSettings = {
-  password: { mode: 'random', length: 12, fixedValue: '', logToConsole: false },
+  password: { mode: 'fixed', length: 12, fixedValue: 'Test@1234', logToConsole: false },
   fields: {
     ignoreFields: ['captcha', 'hipinputtext'],
     ignoreHiddenInvisible: true,

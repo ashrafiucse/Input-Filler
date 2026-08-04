@@ -57,6 +57,13 @@ describe('save/load round-trip', () => {
   });
 });
 
+describe('password default', () => {
+  it('defaults to a fixed (static) password with a usable value', () => {
+    expect(DEFAULT_SETTINGS.password.mode).toBe('fixed');
+    expect(DEFAULT_SETTINGS.password.fixedValue.length).toBeGreaterThanOrEqual(8);
+  });
+});
+
 describe('migration', () => {
   it('upgrades an older partial object, adding missing fields with defaults', () => {
     const oldish = { settingsVersion: 0, general: { theme: 'dark' } } as unknown;
