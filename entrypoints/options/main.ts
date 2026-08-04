@@ -242,6 +242,7 @@ async function init(): Promise<void> {
     document.getElementById(id)?.addEventListener('change', () => void saveSettingsDebounced());
   }
 
+  $('save-btn').addEventListener('click', () => void saveSettingsDebounced());
   $('rule-add').addEventListener('click', () => openEditor(null));
   $('rule-add-empty').addEventListener('click', () => openEditor(null));
   $('re-save').addEventListener('click', (e) => {
