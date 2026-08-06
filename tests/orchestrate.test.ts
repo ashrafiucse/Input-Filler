@@ -458,8 +458,7 @@ describe('dropdown (select) options', () => {  it('skips <select> fields when fi
   });
 });
 
-describe('checkout card fields', () => {
-  it('fills card number, expiry, and CVC from the test-card settings', () => {
+describe('checkout card fields', () => {  it('fills card number, expiry, and CVC from the test-card settings', () => {
     setDoc(`
       <form>
         <input name="cardNumber" autocomplete="cc-number" type="text" inputmode="numeric" aria-label="Card number" placeholder="1234 1234 1234 1234">
@@ -484,5 +483,37 @@ describe('checkout card fields', () => {
     expect(q('cardNumber').value).toBe('4000 0000 0000 0002');
     expect(q('cardExpiry').value).toBe('11 / 38');
     expect(q('cardCvc').value).toBe('999');
+  });
+});
+
+describe('CSRF / session token fields are never touched', () => {
+  it('fill preserves a hidden _token field', () => {
+    setDoc(`<form>
+      <input type="hidden" name="_token" value="abc123">
+      <input name="email" type="email">
+    </form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('[name=_token]') as HTMLInputElement).value).toBe('abc123');
+  });
+  it('fill preserves a non-hidden token field (would otherwise corrupt the token)', () => {
+    setDoc(`<form>
+      <input name="csrfmiddlewaretoken" type="text" value="XYZ_SECRET">
+      <input name="email" type="email">
+    </form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('[name=csrfmiddlewaretoken]') as HTMLInputElement).value).toBe('XYZ_SECRET');
+    // the ordinary field still fills normally
+    expect((document.querySelector('[name=email]') as HTMLInputElement).value.length).toBeGreaterThan(0);
+  });
+  it('clear preserves token fields but clears ordinary ones', () => {
+    setDoc(`<form>
+      <input type="hidden" name="_token" value="abc123">
+      <input name="authenticity_token" type="text" value="RAILS_TOKEN">
+      <input name="email" type="email" value="x@y.z">
+    </form>`);
+    clearAllForms(document);
+    expect((document.querySelector('[name=_token]') as HTMLInputElement).value).toBe('abc123');
+    expect((document.querySelector('[name=authenticity_token]') as HTMLInputElement).value).toBe('RAILS_TOKEN');
+    expect((document.querySelector('[name=email]') as HTMLInputElement).value).toBe('');
   });
 });

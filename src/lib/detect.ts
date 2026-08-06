@@ -65,6 +65,22 @@ export function isContentEditableEl(el: Element): boolean {
   return v === '' || v === 'true' || v === 'plaintext-only';
 }
 
+/**
+ * Names/ids that mark a field as a security/session token (CSRF, anti-forgery,
+ * nonce, view state…). Such fields must NEVER be filled or cleared: overwriting
+ * a CSRF token is what makes Laravel / Rails / ASP.NET forms reject the submit
+ * with "page expired" (419) and can invalidate the session (the user gets logged
+ * out). type="hidden" is already skipped by the orchestrator; this also covers
+ * tokens rendered as a non-hidden input. Matched by substring on name/id so it
+ * catches `_token`, `csrfmiddlewaretoken`, `authenticity_token`,
+ * `__RequestVerificationToken`, `wpnonce`, etc.
+ */
+const TOKEN_FIELD_RE = /csrf|token|nonce|viewstate|antiforgery|requestverification/i;
+
+export function isSecurityTokenField(desc: FieldDescriptor): boolean {
+  return TOKEN_FIELD_RE.test(desc.name ?? '') || TOKEN_FIELD_RE.test(desc.id ?? '');
+}
+
 export function describeField(el: Element): FieldDescriptor {
   const get = (n: string) => el.getAttribute(n) ?? undefined;
   const tag = el.tagName.toLowerCase();

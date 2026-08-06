@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectType, resolveMediaProvider, type FieldDescriptor } from '../src/lib/detect';
+import { detectType, resolveMediaProvider, isSecurityTokenField, type FieldDescriptor } from '../src/lib/detect';
 
 function input(attrs: Partial<FieldDescriptor> = {}): FieldDescriptor {
   return { tag: 'input', type: 'text', ...attrs };
@@ -182,6 +182,22 @@ describe('resolveMediaProvider (named provider wins)', () => {
   it('returns undefined when no provider is named', () => {
     expect(resolveMediaProvider(input({ label: 'Embed code' }))).toBeUndefined();
     expect(resolveMediaProvider(input({ placeholder: 'Paste a video URL' }))).toBeUndefined();
+  });
+});
+
+describe('security token fields', () => {
+  it('flags CSRF / anti-forgery / nonce token field names and ids', () => {
+    expect(isSecurityTokenField(input({ name: '_token' }))).toBe(true);
+    expect(isSecurityTokenField(input({ name: 'csrfmiddlewaretoken' }))).toBe(true);
+    expect(isSecurityTokenField(input({ id: 'authenticity_token' }))).toBe(true);
+    expect(isSecurityTokenField(input({ name: '__RequestVerificationToken' }))).toBe(true);
+    expect(isSecurityTokenField(input({ name: 'wpnonce' }))).toBe(true);
+  });
+  it('does not flag ordinary fillable fields', () => {
+    expect(isSecurityTokenField(input({ name: 'email' }))).toBe(false);
+    expect(isSecurityTokenField(input({ name: 'first_name' }))).toBe(false);
+    expect(isSecurityTokenField(input({ name: 'cardNumber' }))).toBe(false);
+    expect(isSecurityTokenField(input({ name: 'cardCvc' }))).toBe(false);
   });
 });
 

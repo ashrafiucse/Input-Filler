@@ -7,7 +7,7 @@
 // and reused so an email derives from the name shown in the name field.
 
 import { fillField, clearContentEditable, isMechanicalType } from './fillers';
-import { describeField, detectType, isContentEditableEl, resolveMediaProvider, mediaContext } from './detect';
+import { describeField, detectType, isContentEditableEl, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
 import {
@@ -140,6 +140,11 @@ export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeFiel
   if (desc.dataFake === 'skip' || desc.dataFillType === 'skip') return true;
   const input = el as HTMLInputElement;
   if (desc.type === 'hidden' || input.disabled || input.readOnly) return true;
+  // Never fill/clear CSRF / anti-forgery / nonce token fields. Overwriting one
+  // is what causes Laravel/ASP.NET/Rails submits to fail with "page expired"
+  // (419) and can log the user out. type=hidden is already skipped above; this
+  // also protects tokens rendered as a non-hidden input.
+  if (isSecurityTokenField(desc)) return true;
   // A disabled dropdown setting skips <select> fields entirely.
   if (desc.tag === 'select' && !settings.select.enabled) return true;
   if (matchesAny(desc, settings.fields.ignoreFields)) return true;
@@ -381,6 +386,8 @@ export function clearAllForms(doc: Document): number {
     }
     const input = el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
     if (input.type === 'hidden' || input.disabled || (input as HTMLInputElement).readOnly) continue;
+    // Same token protection as the fill path (see shouldSkip).
+    if (isSecurityTokenField(describeField(el))) continue;
     if (input.type === 'checkbox' || input.type === 'radio') {
       if ((input as HTMLInputElement).checked) {
         (input as HTMLInputElement).checked = false;
