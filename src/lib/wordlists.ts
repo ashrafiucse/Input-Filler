@@ -1,17 +1,24 @@
 // Hand-curated wordlists. All entries are original compositions (license-clean).
 
+// Common American given names (mainstream US), gender-balanced.
 export const FIRST_NAMES = [
-  'Eleanor', 'Marcus', 'Priya', 'Olivia', 'Daniel', 'Sofia', 'Liam', 'Ava', 'Noah',
-  'Mia', 'Ethan', 'Isla', 'Lucas', 'Zoe', 'Henry', 'Nora', 'Leo', 'Ruby', 'Theo',
-  'Hazel', 'Felix', 'Ivy', 'Owen', 'Cora', 'Asher', 'Maya', 'Jude', 'Lila', 'Silas',
-  'Ada',
+  'James', 'John', 'Robert', 'Michael', 'William', 'David', 'Richard', 'Joseph',
+  'Thomas', 'Charles', 'Christopher', 'Daniel', 'Matthew', 'Anthony', 'Mark',
+  'Donald', 'Steven', 'Paul', 'Andrew', 'Joshua', 'Kenneth', 'Kevin', 'Brian',
+  'George', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Barbara',
+  'Susan', 'Jessica', 'Sarah', 'Karen', 'Nancy', 'Lisa', 'Betty', 'Margaret',
+  'Sandra', 'Ashley', 'Kimberly', 'Emily', 'Donna', 'Michelle', 'Carol', 'Amanda',
+  'Melissa', 'Deborah',
 ] as const;
 
+// Common American surnames (top US Census names).
 export const LAST_NAMES = [
-  'Whitfield', 'Patel', 'Garcia', 'Nguyen', 'Bennett', 'Okafor', 'Rossi', 'Kim',
-  'Martinez', 'Larsson', 'Cohen', 'Walker', 'Diaz', 'Novak', 'Foster', 'Khan',
-  'Bauer', 'Reyes', 'Petrov', 'Mori', 'Holt', 'Silva', 'Varga', 'Adeyemi', 'Costa',
-  'Brennan', 'Hassan', 'Lindqvist', 'Mercer', 'Vargas',
+  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Wilson',
+  'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Thompson',
+  'White', 'Harris', 'Clark', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen',
+  'King', 'Wright', 'Scott', 'Hill', 'Green', 'Adams', 'Nelson', 'Baker', 'Hall',
+  'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts', 'Phillips', 'Evans',
+  'Turner', 'Parker', 'Edwards', 'Collins', 'Stewart', 'Morris', 'Murphy', 'Cook',
 ] as const;
 
 export const CITIES = [

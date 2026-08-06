@@ -35,6 +35,7 @@ import {
   BUILTIN_GENERATORS,
 } from '../src/lib/generators';
 import { dummyText, CORPUS } from '../src/lib/text';
+import { FIRST_NAMES, LAST_NAMES } from '../src/lib/wordlists';
 
 const EMAIL_RE = /^[a-z0-9.]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 const PHONE_RE = /^\(\d{3}\) \d{3}-\d{4}$/;
@@ -90,6 +91,28 @@ describe('name/email consistency', () => {
   });
   it('fullName combines first and last', () => {
     expect(fullName({ first: 'Eleanor', last: 'Whitfield' })).toBe('Eleanor Whitfield');
+  });
+});
+
+describe('American name pools', () => {
+  it('first/last names are always drawn from the American pools', () => {
+    const rng = createRng(3);
+    for (let i = 0; i < 100; i++) {
+      expect(FIRST_NAMES).toContain(firstName(rng));
+      expect(LAST_NAMES).toContain(lastName(rng));
+    }
+  });
+  it('the pools hold common American names', () => {
+    expect(FIRST_NAMES).toContain('James');
+    expect(FIRST_NAMES).toContain('Emily');
+    expect(LAST_NAMES).toContain('Smith');
+    expect(LAST_NAMES).toContain('Johnson');
+  });
+  it('previously international names are no longer used', () => {
+    // The pools were intentionally switched to American-only personas.
+    expect(FIRST_NAMES).not.toContain('Priya');
+    expect(LAST_NAMES).not.toContain('Patel');
+    expect(LAST_NAMES).not.toContain('Nguyen');
   });
 });
 
