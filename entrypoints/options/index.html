@@ -32,13 +32,15 @@
 
     <section>
       <h2>Dropdowns (select fields)</h2>
-      <label class="row"><input id="s-enabled" type="checkbox" checked /> Fill dropdown / select fields</label>
-      <label>Option to select <select id="s-strategy">
-        <option value="random">Random option</option>
-        <option value="first">First option</option>
-        <option value="match">Specific option…</option>
-      </select></label>
-      <label id="s-match-wrap">Specific option (value or text) <input id="s-match" type="text" placeholder="e.g. United States" /></label>
+      <label class="row"><input id="s-enabled" type="checkbox" checked /> Enable option selection for dropdowns</label>
+      <div id="s-controls">
+        <label>Option to select <select id="s-strategy">
+          <option value="random">Random option</option>
+          <option value="first">First option</option>
+          <option value="match">Specific option…</option>
+        </select></label>
+        <label id="s-match-wrap">Specific option (value or text) <input id="s-match" type="text" placeholder="e.g. United States" /></label>
+      </div>
     </section>
 
     <section>

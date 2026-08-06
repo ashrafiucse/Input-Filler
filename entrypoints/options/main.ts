@@ -43,10 +43,17 @@ function csv(s: string): string[] {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
-/** Show the "specific option" text box only when that strategy is chosen. */
-function updateSelectMatchVisibility(): void {
-  const wrap = document.getElementById('s-match-wrap');
-  if (wrap) wrap.hidden = val('s-strategy') !== 'match';
+/**
+ * Gate the dropdown option-selection UI on its master toggle: when disabled,
+ * the strategy/option controls are hidden entirely; when enabled, the
+ * "specific option" box appears only for the 'match' strategy.
+ */
+function updateSelectVisibility(): void {
+  const enabled = checked('s-enabled');
+  const controls = document.getElementById('s-controls');
+  if (controls) controls.hidden = !enabled;
+  const matchWrap = document.getElementById('s-match-wrap');
+  if (matchWrap) matchWrap.hidden = !(enabled && val('s-strategy') === 'match');
 }
 
 function populateSettings(): void {
@@ -63,7 +70,7 @@ function populateSettings(): void {
   setChecked('s-enabled', settings.select.enabled);
   setVal('s-strategy', settings.select.strategy);
   setVal('s-match', settings.select.match);
-  updateSelectMatchVisibility();
+  updateSelectVisibility();
   setChecked('g-events', settings.general.triggerEvents);
   setChecked('g-menu', settings.general.contextMenu);
   setChecked('g-ai', settings.general.useOnDeviceAI);
@@ -259,7 +266,8 @@ async function init(): Promise<void> {
   ]) {
     document.getElementById(id)?.addEventListener('change', () => void saveSettingsDebounced());
   }
-  document.getElementById('s-strategy')?.addEventListener('change', updateSelectMatchVisibility);
+  document.getElementById('s-enabled')?.addEventListener('change', updateSelectVisibility);
+  document.getElementById('s-strategy')?.addEventListener('change', updateSelectVisibility);
 
   $('save-btn').addEventListener('click', () => void saveSettingsDebounced());
   $('rule-add').addEventListener('click', () => openEditor(null));
