@@ -199,12 +199,47 @@ export function objective(rng: Rng = defaultRng): string {
   return pick(OBJECTIVES, rng);
 }
 
-/** A sample embed snippet (reserved example host) for embed/custom-code fields. */
+// Real, provider-correct media samples (exact embed snippets + canonical
+// links) so embed-code and media-URL fields receive valid, usable values.
+// The audio set is Islamic content (Quran recitation), per the platform's focus.
+const VIDEO_EMBEDS = [
+  '<iframe width="560" height="315" src="https://www.youtube.com/embed/dz65i48QgB0?si=c80Sb1ciFhL9Ix6-" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>',
+  '<iframe title="vimeo-player" src="https://player.vimeo.com/video/57875730?h=5be51048a4" width="640" height="360" frameborder="0" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" allowfullscreen></iframe>',
+] as const;
+
+const VIDEO_LINKS = [
+  'https://www.youtube.com/watch?v=dz65i48QgB0',
+  'https://vimeo.com/57875730',
+] as const;
+
+const AUDIO_EMBEDS = [
+  '<iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/album/3Uu8oN2OY2AjvN5R6VFMup?utm_source=generator&si=14728451b7424cc4" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>',
+  '<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/soundcloud%253Atracks%253A1557721786&color=%23ff5500&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>',
+] as const;
+
+const AUDIO_LINKS = [
+  'https://open.spotify.com/album/3Uu8oN2OY2AjvN5R6VFMup',
+  'https://soundcloud.com/user-241276152/surat-annur-by-islam-sobhy-m4a',
+] as const;
+
+/** A real video embed snippet (rotates YouTube / Vimeo) for embed/custom-code fields. */
 export function embedCode(rng: Rng = defaultRng): string {
-  const id = Array.from({ length: 11 }, () =>
-    char('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rng),
-  ).join('');
-  return `<iframe width="560" height="315" src="https://www.example.com/embed/${id}" title="Embedded media" frameborder="0" allowfullscreen></iframe>`;
+  return pick(VIDEO_EMBEDS, rng);
+}
+
+/** A real audio embed snippet (rotates Spotify / SoundCloud) for audio embed fields. */
+export function audioEmbed(rng: Rng = defaultRng): string {
+  return pick(AUDIO_EMBEDS, rng);
+}
+
+/** A real video link (rotates YouTube / Vimeo) for video-URL fields. */
+export function videoUrl(rng: Rng = defaultRng): string {
+  return pick(VIDEO_LINKS, rng);
+}
+
+/** A real audio link (rotates Spotify / SoundCloud) for audio-URL fields. */
+export function audioUrl(rng: Rng = defaultRng): string {
+  return pick(AUDIO_LINKS, rng);
 }
 
 /**
@@ -240,6 +275,9 @@ export const BUILTIN_GENERATORS = new Set<string>([
   'taxName',
   'objective',
   'embedCode',
+  'audioEmbed',
+  'videoUrl',
+  'audioUrl',
 ]);
 
 export function generateByName(name: string, rng: Rng = defaultRng): string {
@@ -298,6 +336,12 @@ export function generateByName(name: string, rng: Rng = defaultRng): string {
       return objective(rng);
     case 'embedCode':
       return embedCode(rng);
+    case 'audioEmbed':
+      return audioEmbed(rng);
+    case 'videoUrl':
+      return videoUrl(rng);
+    case 'audioUrl':
+      return audioUrl(rng);
     default:
       return sentence('general', rng);
   }

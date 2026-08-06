@@ -239,6 +239,23 @@ function isEmbedField(desc: FieldDescriptor): boolean {
   );
 }
 
+/**
+ * Classify a field's media context from a provider keyword or domain in its
+ * label/name/placeholder/aria/class: audio (Spotify/SoundCloud) or video
+ * (YouTube/Vimeo/Loom). Used both to route embed fields (audio vs video embed)
+ * and to turn a media-URL field into a real provider link ahead of type=url.
+ */
+function mediaContext(desc: FieldDescriptor): 'audio' | 'video' | undefined {
+  const hay = [desc.placeholder, desc.label, desc.ariaLabel, desc.name, desc.id, desc.className]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (!hay) return undefined;
+  if (/\b(spotify|soundcloud)\b/.test(hay) || /spotify\.com|soundcloud\.com/.test(hay)) return 'audio';
+  if (/\b(youtube|youtu\.be|vimeo|loom)\b/.test(hay) || /youtube\.com|vimeo\.com/.test(hay)) return 'video';
+  return undefined;
+}
+
 function buildHaystack(desc: FieldDescriptor, attrs: MatchAttribute[]): string {
   const parts: string[] = [];
   for (const a of attrs) {
@@ -280,13 +297,21 @@ export function detectType(
 
   // 2. Embed / custom-code fields (HTML/iframe placeholder) — any tag, before
   //    the free-text short-circuit so an <iframe> textarea gets a real embed.
-  if (isEmbedField(desc)) return 'embed';
+  //    Audio providers (Spotify/SoundCloud) route to an audio embed.
+  if (isEmbedField(desc)) return mediaContext(desc) === 'audio' ? 'audio_embed' : 'embed';
 
   // 3. <select> is always mechanical: pick a valid <option>. Generating a typed
   //    string and assigning it usually selects nothing, so a select is never
   //    classified by its name/label (e.g. a "country" select just picks a real
   //    country option rather than receiving the literal "Germany").
   if (desc.tag === 'select') return 'select';
+
+  // 3b. Media provider (YouTube/Vimeo/Spotify/SoundCloud) mentioned in a link/
+  //     URL field — beats input type=url so a "Paste YouTube URL" input gets a
+  //     real video link (or audio link) instead of a generic company URL.
+  const mc = mediaContext(desc);
+  if (mc === 'audio') return 'audio_url';
+  if (mc === 'video') return 'video_url';
 
   // 4. autocomplete.
   if (desc.autocomplete) {

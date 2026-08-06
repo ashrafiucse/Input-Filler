@@ -35,6 +35,9 @@ import {
   taxName as genTaxName,
   objective as genObjective,
   embedCode as genEmbedCode,
+  videoUrl as genVideoUrl,
+  audioUrl as genAudioUrl,
+  audioEmbed as genAudioEmbed,
 } from './generators';
 import { type Rng, defaultRng } from './rng';
 import type { TextTheme } from './text';
@@ -206,6 +209,12 @@ function generateValue(
       return genObjective(rng);
     case 'embed':
       return genEmbedCode(rng);
+    case 'video_url':
+      return genVideoUrl(rng);
+    case 'audio_url':
+      return genAudioUrl(rng);
+    case 'audio_embed':
+      return genAudioEmbed(rng);
     case 'date':
       return date(rng);
     case 'color':

@@ -129,7 +129,29 @@ describe('embed / custom-code fields', () => {
   it('a custom-HTML/CSS/JS textarea is embed', () => {
     expect(detectType({ tag: 'textarea', placeholder: 'Paste your custom HTML, CSS, and JavaScript here...' })).toBe('embed');
   });
-  it('an input asking for an embed URL is NOT embed', () => {
-    expect(detectType(input({ placeholder: 'Paste YouTube, Vimeo, or Loom URL here...' }))).toBe('url');
+  it('an input asking for a video URL is video_url, not a generic url', () => {
+    expect(detectType(input({ placeholder: 'Paste YouTube, Vimeo, or Loom URL here...' }))).toBe('video_url');
+  });
+});
+
+describe('media provider detection (video / audio)', () => {
+  it('a YouTube/Vimeo link field (even type=url) is video_url', () => {
+    expect(detectType(input({ type: 'url', placeholder: 'Paste YouTube URL' }))).toBe('video_url');
+    expect(detectType(input({ label: 'Vimeo link' }))).toBe('video_url');
+  });
+  it('a Spotify/SoundCloud link field is audio_url', () => {
+    expect(detectType(input({ label: 'Spotify URL' }))).toBe('audio_url');
+    expect(detectType(input({ placeholder: 'Paste SoundCloud track link…' }))).toBe('audio_url');
+  });
+  it('a Spotify/SoundCloud embed iframe is audio_embed', () => {
+    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://open.spotify.com/embed/album/…"></iframe>' })).toBe('audio_embed');
+    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://w.soundcloud.com/player/?url=…"></iframe>' })).toBe('audio_embed');
+  });
+  it('a YouTube/Vimeo embed iframe is embed (video)', () => {
+    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://www.youtube.com/embed/…"></iframe>' })).toBe('embed');
+    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://player.vimeo.com/video/…"></iframe>' })).toBe('embed');
+  });
+  it('a generic website URL is still url (not media)', () => {
+    expect(detectType(input({ label: 'Website', type: 'url' }))).toBe('url');
   });
 });

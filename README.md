@@ -70,7 +70,8 @@ Recognized semantic types and the data they generate:
 | `subdomain` | subdomain / slug / namespace / handle | a lowercase hyphenated slug |
 | `tax_name` | tax name / tax label | VAT, GST, Sales Tax, … |
 | `objective` | learning objective / outcome | an action-oriented outcome sentence |
-| `embed` | `<iframe>` / custom HTML/CSS/JS placeholder | a sample `<iframe>` embed snippet |
+| `embed` / `audio_embed` | `<iframe>` / custom HTML/CSS/JS placeholder; audio providers (Spotify/SoundCloud) route to audio | a **real** embed: YouTube/Vimeo (video) or Spotify/SoundCloud (audio — Islamic content) |
+| `video_url` / `audio_url` | "Paste YouTube/Vimeo URL", Spotify/SoundCloud link field (beats `type=url`) | a real YouTube/Vimeo link, or Spotify/SoundCloud link |
 | `email` / `url` / `password` | `type=`, autocomplete, **or** placeholder shape | a generated email / URL / strong password |
 | identity / address | first/last/full name, phone, street, city, state, zip, country, company, job title, username | readable structured data |
 | `company` | company / org / **platform / tenant / academy / institute / school / brand / workspace** name | a generated organization name |

@@ -26,6 +26,9 @@ import {
   taxName,
   objective,
   embedCode,
+  audioEmbed,
+  videoUrl,
+  audioUrl,
   generateByName,
   BUILTIN_GENERATORS,
 } from '../src/lib/generators';
@@ -183,10 +186,23 @@ describe('content-aware generators', () => {
     const out = objective(createRng(1));
     expect(out.endsWith('.')).toBe(true);
   });
-  it('embedCode yields an <iframe> snippet on the reserved example host', () => {
+  it('embedCode yields a real YouTube/Vimeo embed iframe', () => {
     const out = embedCode(createRng(1));
     expect(out.startsWith('<iframe')).toBe(true);
-    expect(out).toContain('example.com');
     expect(out.endsWith('</iframe>')).toBe(true);
+    expect(/youtube\.com\/embed|player\.vimeo\.com/.test(out)).toBe(true);
+  });
+  it('audioEmbed yields a real Spotify/SoundCloud embed iframe', () => {
+    const out = audioEmbed(createRng(1));
+    expect(out.startsWith('<iframe')).toBe(true);
+    expect(/open\.spotify\.com\/embed|w\.soundcloud\.com\/player/.test(out)).toBe(true);
+  });
+  it('videoUrl yields a real YouTube/Vimeo link', () => {
+    const out = videoUrl(createRng(1));
+    expect(/youtube\.com\/watch|vimeo\.com/.test(out)).toBe(true);
+  });
+  it('audioUrl yields a real Spotify/SoundCloud link', () => {
+    const out = audioUrl(createRng(1));
+    expect(/open\.spotify\.com|soundcloud\.com/.test(out)).toBe(true);
   });
 });
