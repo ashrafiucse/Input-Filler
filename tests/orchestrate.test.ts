@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { fillAllForms, fillCurrentForm, clearAllForms } from '../src/lib/orchestrate';
+import { flushComboboxFills, _resetComboboxQueue } from '../src/lib/fillers';
 import { DEFAULT_SETTINGS, mergeDefaults, type FillerSettings } from '../src/lib/settings';
 import { createRng } from '../src/lib/rng';
 
@@ -515,5 +516,126 @@ describe('CSRF / session token fields are never touched', () => {
     expect((document.querySelector('[name=_token]') as HTMLInputElement).value).toBe('abc123');
     expect((document.querySelector('[name=authenticity_token]') as HTMLInputElement).value).toBe('RAILS_TOKEN');
     expect((document.querySelector('[name=email]') as HTMLInputElement).value).toBe('');
+  });
+});
+
+/**
+ * Mount a Mantine-style combobox imperatively (its framework behavior — open on
+ * click renders options into a portal listbox; clicking an option commits to
+ * the readonly input — can't be expressed as static HTML). Returns the input.
+ */
+function mountCombobox(
+  opts: Array<[value: string, label: string]>,
+  cfg: { listboxId?: string; name?: string; insideForm?: boolean } = {},
+): HTMLInputElement {
+  const listboxId = cfg.listboxId ?? 'mantine-listbox';
+  const listbox = document.createElement('div');
+  listbox.id = listboxId;
+  listbox.setAttribute('role', 'listbox');
+  document.body.append(listbox);
+
+  const input = document.createElement('input');
+  input.readOnly = true;
+  if (cfg.name) input.name = cfg.name;
+  input.setAttribute('aria-haspopup', 'listbox');
+  input.setAttribute('aria-controls', listboxId);
+  input.setAttribute('placeholder', 'Select Question Type');
+  input.className = 'm_8fb7ebe7 mantine-Input-input mantine-Select-input';
+  input.addEventListener('click', () => {
+    for (const [value, label] of opts) {
+      const o = document.createElement('div');
+      o.setAttribute('role', 'option');
+      o.setAttribute('data-value', value);
+      o.textContent = label;
+      o.addEventListener('click', () => {
+        input.value = label;
+      });
+      listbox.append(o);
+    }
+  });
+  if (cfg.insideForm !== false) {
+    const form = document.querySelector('form') ?? (() => {
+      const f = document.createElement('form');
+      document.body.append(f);
+      return f;
+    })();
+    form.append(input);
+  } else {
+    document.body.append(input);
+  }
+  return input;
+}
+
+describe('ARIA combobox dropdowns (Mantine Select)', () => {
+  beforeEach(() => {
+    setDoc('');
+    _resetComboboxQueue();
+  });
+
+  it('fills a readonly Mantine Select by opening it and picking an option (not skipped)', async () => {
+    // This is the exact failing case from the field report: a readonly combobox
+    // input that the old code skipped (readonly) and could not fill.
+    const input = mountCombobox(
+      [
+        ['short', 'Short Answer'],
+        ['paragraph', 'Paragraph'],
+        ['multiple', 'Multiple Choice'],
+      ],
+      { name: 'type' },
+    );
+    const res = fillAllForms(document, ctx());
+    await flushComboboxFills();
+    expect(res.filled).toBe(1);
+    expect(input.value.length).toBeGreaterThan(0);
+    expect(['Short Answer', 'Paragraph', 'Multiple Choice']).toContain(input.value);
+  });
+
+  it('is skipped when the dropdown setting is disabled', async () => {
+    const input = mountCombobox([['a', 'A'], ['b', 'B']], { name: 'type' });
+    fillAllForms(document, ctx({ select: { enabled: false, strategy: 'random', match: '' } }));
+    await flushComboboxFills();
+    expect(input.value).toBe('');
+  });
+
+  it('honors strategy "first"', async () => {
+    const input = mountCombobox([['basic', 'Basic'], ['pro', 'Pro'], ['ent', 'Enterprise']], { name: 'plan' });
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'first', match: '' } }));
+    await flushComboboxFills();
+    expect(input.value).toBe('Basic');
+  });
+
+  it('honors strategy "match" against a visible option label', async () => {
+    const input = mountCombobox(
+      [
+        ['us', 'United States'],
+        ['ca', 'Canada'],
+        ['mx', 'Mexico'],
+      ],
+      { name: 'country' },
+    );
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'match', match: 'Mexico' } }));
+    await flushComboboxFills();
+    expect(input.value).toBe('Mexico');
+  });
+
+  it('coexists with ordinary fields in the same form', async () => {
+    setDoc(`<form>
+      <input name="title" type="text">
+    </form>`);
+    const cb = mountCombobox([['a', 'Alpha'], ['b', 'Beta']], { name: 'type' });
+    const res = fillAllForms(document, ctx());
+    await flushComboboxFills();
+    expect(res.filled).toBe(2);
+    expect((document.querySelector('[name=title]') as HTMLInputElement).value.length).toBeGreaterThan(0);
+    expect(['Alpha', 'Beta']).toContain(cb.value);
+  });
+
+  it('fills two comboboxes on the same form (no race)', async () => {
+    const a = mountCombobox([['a1', 'A-one'], ['a2', 'A-two']], { listboxId: 'lb-a', name: 'first' });
+    const b = mountCombobox([['b1', 'B-one'], ['b2', 'B-two']], { listboxId: 'lb-b', name: 'second' });
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'first', match: '' } }));
+    await flushComboboxFills();
+    expect(a.value).toBe('A-one');
+    expect(b.value).toBe('B-one');
   });
 });

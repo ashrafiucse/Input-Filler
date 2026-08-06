@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fillField, _resetRadioCounter } from '../src/lib/fillers';
+import { fillField, fillCombobox, flushComboboxFills, _resetComboboxQueue, _resetRadioCounter } from '../src/lib/fillers';
+import { createRng } from '../src/lib/rng';
 
 function set(html: string): Document {
   document.documentElement.innerHTML = html;
@@ -7,7 +8,6 @@ function set(html: string): Document {
 }
 
 beforeEach(() => _resetRadioCounter());
-
 describe('text-like filling', () => {
   it('sets the value and fires input + change', () => {
     set('<input id="a" type="text">');
@@ -232,5 +232,161 @@ describe('contenteditable rich-text editors (TipTap/ProseMirror)', () => {
     const el = document.getElementById('e') as HTMLElement;
     expect(() => fillField(el, 'paragraph', 'safe')).not.toThrow();
     expect(el.textContent).toBe('safe');
+  });
+});
+
+/**
+ * Build a Mantine-style combobox: a readonly <input aria-haspopup=listbox
+ * aria-controls=lb> whose portal <div role=listbox> is populated with options
+ * when the input is clicked (mimicking React re-rendering the portal on open).
+ * Clicking an option sets the input value, as the framework would.
+ */
+function buildCombobox(
+  opts: Array<[value: string, label: string]>,
+  cfg: { listboxId?: string; disabled?: number[] } = {},
+): HTMLInputElement {
+  const listboxId = cfg.listboxId ?? 'mantine-listbox';
+  const listbox = document.createElement('div');
+  listbox.id = listboxId;
+  listbox.setAttribute('role', 'listbox');
+  document.body.append(listbox);
+
+  const input = document.createElement('input');
+  input.readOnly = true;
+  input.setAttribute('aria-haspopup', 'listbox');
+  input.setAttribute('aria-controls', listboxId);
+  input.setAttribute('placeholder', 'Select Question Type');
+  input.className = 'm_8fb7ebe7 mantine-Input-input mantine-Select-input';
+  // Framework: open on click -> render options into the portal listbox.
+  input.addEventListener('click', () => {
+    for (const [value, label] of opts) {
+      const o = document.createElement('div');
+      o.setAttribute('role', 'option');
+      o.setAttribute('data-value', value);
+      o.textContent = label;
+      // Framework: clicking an option commits it to the (controlled) input.
+      o.addEventListener('click', () => {
+        input.value = label;
+      });
+      listbox.append(o);
+    }
+  });
+  document.body.append(input);
+  return input;
+}
+
+describe('ARIA combobox (Mantine Select)', () => {
+  beforeEach(() => {
+    _resetComboboxQueue();
+    document.body.innerHTML = '';
+  });
+
+  it('opens the dropdown and commits an option (random)', async () => {
+    const input = buildCombobox([
+      ['short', 'Short Answer'],
+      ['long', 'Paragraph'],
+      ['mcq', 'Multiple Choice'],
+    ]);
+    fillCombobox(input, { rng: createRng(1) });
+    await flushComboboxFills();
+    expect(input.value.length).toBeGreaterThan(0);
+    expect(['Short Answer', 'Paragraph', 'Multiple Choice']).toContain(input.value);
+  });
+
+  it('strategy "first" always picks the first option', async () => {
+    const input = buildCombobox([
+      ['basic', 'Basic'],
+      ['pro', 'Pro'],
+      ['ent', 'Enterprise'],
+    ]);
+    for (let i = 0; i < 5; i++) {
+      input.value = '';
+      fillCombobox(input, { strategy: 'first', rng: createRng(i) });
+      await flushComboboxFills();
+      expect(input.value).toBe('Basic');
+    }
+  });
+
+  it('strategy "match" selects by exact value or text (then substring)', async () => {
+    const input = buildCombobox([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+      ['mx', 'Mexico'],
+    ]);
+    fillCombobox(input, { strategy: 'match', match: 'ca' });
+    await flushComboboxFills();
+    expect(input.value).toBe('Canada');
+
+    input.value = '';
+    fillCombobox(input, { strategy: 'match', match: 'Mexico' });
+    await flushComboboxFills();
+    expect(input.value).toBe('Mexico');
+  });
+
+  it('match falls back to the first option when nothing matches', async () => {
+    const input = buildCombobox([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+    ]);
+    fillCombobox(input, { strategy: 'match', match: 'Brazil' });
+    await flushComboboxFills();
+    expect(input.value).toBe('United States');
+  });
+
+  it('does not select a disabled option', async () => {
+    const input = buildCombobox(
+      [
+        ['', 'Select…'],
+        ['one', 'One'],
+        ['two', 'Two'],
+      ],
+      { disabled: [2] }, // 'Two' is disabled
+    );
+    // Mark 'Two' disabled in the rendered options after open.
+    input.addEventListener('click', () => {
+      const listbox = document.getElementById('mantine-listbox')!;
+      const two = Array.from(listbox.querySelectorAll<HTMLElement>('[role=option]')).find(
+        (o) => o.getAttribute('data-value') === 'two',
+      );
+      if (two) two.setAttribute('aria-disabled', 'true');
+    });
+    for (let i = 0; i < 30; i++) {
+      input.value = '';
+      // Re-open clears the listbox so each iteration is independent.
+      document.getElementById('mantine-listbox')!.innerHTML = '';
+      fillCombobox(input, { rng: createRng(i) });
+      await flushComboboxFills();
+      expect(input.value).toBe('One'); // never the disabled 'Two' nor the empty placeholder
+    }
+  });
+
+  it('fills two comboboxes on the same form (serialized, no race)', async () => {
+    const a = buildCombobox(
+      [
+        ['a1', 'A-one'],
+        ['a2', 'A-two'],
+      ],
+      { listboxId: 'lb-a' },
+    );
+    const b = buildCombobox(
+      [
+        ['b1', 'B-one'],
+        ['b2', 'B-two'],
+      ],
+      { listboxId: 'lb-b' },
+    );
+    fillCombobox(a, { strategy: 'first' });
+    fillCombobox(b, { strategy: 'first' });
+    await flushComboboxFills();
+    expect(a.value).toBe('A-one');
+    expect(b.value).toBe('B-one');
+  });
+
+  it('is a no-op (never throws) when no options ever render', async () => {
+    const input = buildCombobox([]);
+    // No click handler populates anything; wait must time out gracefully.
+    fillCombobox(input, { rng: createRng(0), openTimeoutMs: 10 });
+    await flushComboboxFills();
+    expect(input.value).toBe('');
   });
 });

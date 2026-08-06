@@ -48,6 +48,13 @@ export interface FieldDescriptor {
   dataFake?: string;
   dataFillType?: string;
   isContentEditable?: boolean;
+  // ARIA combobox signals (Mantine/MUI/Chakra/Ant Select): a readonly text
+  // input whose options live in a portal <div role="listbox">, pointed at by
+  // aria-controls. role/aria-haspopup may sit on the input itself.
+  role?: string;
+  ariaHaspopup?: string;
+  ariaControls?: string;
+  readOnly?: boolean;
 }
 
 /**
@@ -101,7 +108,29 @@ export function describeField(el: Element): FieldDescriptor {
     dataFake: get('data-fake'),
     dataFillType: get('data-fill-type'),
     isContentEditable: isContentEditableEl(el),
+    role: get('role'),
+    ariaHaspopup: get('aria-haspopup'),
+    ariaControls: get('aria-controls'),
+    readOnly: !!(el as HTMLInputElement).readOnly,
   };
+}
+
+/**
+ * True if `desc` describes an ARIA listbox combobox (Mantine/MUI/Chakra/Ant
+ * Select, Headless UI combobox): a text input — usually readonly — whose
+ * choices are a portal-rendered <div role="listbox"> of <div role="option">,
+ * not a native <select>. Such a field must be filled by opening the dropdown
+ * and clicking an option (setting its readonly value directly is ignored by
+ * the framework's controlled state), so it is treated as a mechanical picker.
+ */
+export function isComboboxDesc(desc: FieldDescriptor): boolean {
+  if (desc.role === 'combobox') return true;
+  if (desc.ariaHaspopup === 'listbox') return true;
+  // Mantine Select pattern: readonly input whose aria-controls points at the
+  // portal listbox of options. (Also matches older libs that omit the explicit
+  // aria-haspopup token but wire the listbox via aria-controls.)
+  if (desc.readOnly && desc.ariaControls) return true;
+  return false;
 }
 
 /** Resolve associated label text: <label for>, wrapping <label>, or aria-labelledby. */
@@ -389,6 +418,14 @@ export function detectType(
   //    classified by its name/label (e.g. a "country" select just picks a real
   //    country option rather than receiving the literal "Germany").
   if (desc.tag === 'select') return 'select';
+
+  // 3a. ARIA listbox combobox (Mantine/MUI/Chakra/Ant Select): a readonly text
+  //     input whose options live in a portal <div role="listbox">. Mechanical,
+  //     like <select>: pick a real option, never a typed string (which a
+  //     readonly controlled input would ignore anyway). Caught before media /
+  //     autocomplete / keyword detection so a "country" combobox picks a real
+  //     country option rather than receiving the literal string "Germany".
+  if (desc.tag === 'input' && isComboboxDesc(desc)) return 'combobox';
 
   // 3b. Media provider (YouTube/Vimeo/Spotify/SoundCloud) mentioned in a link/
   //     URL field — beats input type=url so a "Paste YouTube URL" input gets a

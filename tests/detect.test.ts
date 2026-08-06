@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectType, resolveMediaProvider, isSecurityTokenField, type FieldDescriptor } from '../src/lib/detect';
+import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, type FieldDescriptor } from '../src/lib/detect';
 
 function input(attrs: Partial<FieldDescriptor> = {}): FieldDescriptor {
   return { tag: 'input', type: 'text', ...attrs };
@@ -234,5 +234,34 @@ describe('inputmode signals (library-rendered inputs)', () => {
   it('a text inputmode (or none) does not change the fallback', () => {
     expect(detectType(input({ inputMode: 'text', name: 'q' }))).toBe('sentence');
     expect(detectType(input({ name: 'q' }))).toBe('sentence');
+  });
+});
+
+describe('ARIA combobox dropdowns (Mantine/MUI/Chakra Select)', () => {
+  it('is flagged by role=combobox', () => {
+    expect(isComboboxDesc(input({ role: 'combobox' }))).toBe(true);
+    expect(detectType(input({ role: 'combobox', name: 'question_type' }))).toBe('combobox');
+  });
+  it('is flagged by aria-haspopup=listbox', () => {
+    expect(isComboboxDesc(input({ ariaHaspopup: 'listbox' }))).toBe(true);
+    expect(detectType(input({ ariaHaspopup: 'listbox' }))).toBe('combobox');
+  });
+  it('is flagged by readonly + aria-controls (Mantine Select pattern)', () => {
+    // Exact signal in the reported Mantine markup: a readonly text input whose
+    // aria-controls points at the portal listbox.
+    expect(isComboboxDesc(input({ readOnly: true, ariaControls: 'mantine-9nrv5kdt9' }))).toBe(true);
+    expect(detectType(input({ readOnly: true, ariaControls: 'mantine-9nrv5kdt9' }))).toBe('combobox');
+  });
+  it('combobox beats keyword/autocomplete detection (picks a real option, never a typed string)', () => {
+    // A "country" combobox is mechanical: it must not receive the literal
+    // string "Germany" the way a text input would.
+    expect(detectType(input({ role: 'combobox', name: 'country' }))).toBe('combobox');
+    expect(detectType(input({ ariaHaspopup: 'listbox', autocomplete: 'country-name' }))).toBe('combobox');
+  });
+  it('a plain readonly input (no listbox) is NOT a combobox', () => {
+    expect(isComboboxDesc(input({ readOnly: true }))).toBe(false);
+    expect(isComboboxDesc(input({ name: 'q' }))).toBe(false);
+    // aria-haspopup of menu/grid/tree is a different widget, not a listbox select.
+    expect(isComboboxDesc(input({ ariaHaspopup: 'menu' }))).toBe(false);
   });
 });

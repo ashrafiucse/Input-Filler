@@ -54,12 +54,13 @@ Each field is classified so it receives data that fits its purpose, not a generi
 1. explicit `data-fake` / `data-fill-type` hint
 2. **embed / custom-code** (placeholder is an `<iframe>`/HTML snippet, or mentions embed/custom HTML)
 3. **`<select>`** — always picks a valid `<option>` (never a generated string, which usually selects nothing)
-4. `autocomplete` token
-5. input `type` (email/tel/url/number/date/color/checkbox/radio/range/password/**search**)
-6. **placeholder shape** — an email-shaped example (`name@example.com`), a URL-shaped example (`https://…`, `example.com`), or a password cue (`Password`, `Min. 8 characters`) implies that type even with no keyword
-7. free-text short-circuit: `<textarea>` and contenteditable rich editors → readable paragraph
-8. keyword regex → semantic type
-9. element-type fallback
+4. **custom combobox dropdowns** (Mantine/MUI/Chakra Select and other ARIA comboboxes — a readonly `<input>` whose options live in a portal `role="listbox"`) — opens the dropdown and clicks a real `role="option"`, since these inputs are readonly and their value is framework-controlled (typing/setting it is ignored). Honors the same first/match/random strategy as `<select>`.
+5. `autocomplete` token
+6. input `type` (email/tel/url/number/date/color/checkbox/radio/range/password/**search**)
+7. **placeholder shape** — an email-shaped example (`name@example.com`), a URL-shaped example (`https://…`, `example.com`), or a password cue (`Password`, `Min. 8 characters`) implies that type even with no keyword
+8. free-text short-circuit: `<textarea>` and contenteditable rich editors → readable paragraph
+9. keyword regex → semantic type
+10. element-type fallback
 
 Recognized semantic types and the data they generate:
 

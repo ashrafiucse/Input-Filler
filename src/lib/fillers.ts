@@ -19,7 +19,7 @@ export interface FillOptions {
   selectMatch?: string;
 }
 
-const MECHANICAL = new Set<LogicalType>(['checkbox', 'radio', 'select']);
+const MECHANICAL = new Set<LogicalType>(['checkbox', 'radio', 'select', 'combobox']);
 
 export function isMechanicalType(type: LogicalType): boolean {
   return MECHANICAL.has(type);
@@ -177,6 +177,33 @@ function fillRadio(el: HTMLInputElement, trigger: boolean): void {
 }
 
 /**
+ * Pick one item from an already-filtered list of valid options, per the
+ * configured strategy. Shared by native <select> and ARIA combobox options so
+ * they honor the same first/match/random behavior.
+ */
+function chooseFrom<T extends { value: string; text: string }>(
+  valid: T[],
+  strategy: SelectStrategy,
+  match: string,
+  rng: Rng,
+): T | null {
+  if (valid.length === 0) return null;
+  if (strategy === 'first') return valid[0] as T;
+  if (strategy === 'match') {
+    const needle = (match ?? '').trim().toLowerCase();
+    if (needle) {
+      const txt = (o: T) => o.text.trim().toLowerCase();
+      const exact = valid.find((o) => o.value.toLowerCase() === needle || txt(o) === needle);
+      if (exact) return exact;
+      const contains = valid.find((o) => o.value.toLowerCase().includes(needle) || txt(o).includes(needle));
+      if (contains) return contains;
+    }
+    return valid[0] as T; // no/blank match -> deterministic fallback
+  }
+  return pick(valid, rng);
+}
+
+/**
  * Choose a <select> option per the configured strategy:
  *  - 'first':  always the first valid (non-disabled, non-empty) option;
  *  - 'match':  the first option whose value OR visible text equals (then
@@ -191,20 +218,7 @@ function chooseOption(
   rng: Rng,
 ): HTMLOptionElement | null {
   const valid = Array.from(el.options).filter((o) => !o.disabled && o.value !== '');
-  if (valid.length === 0) return null;
-  if (strategy === 'first') return valid[0] as HTMLOptionElement;
-  if (strategy === 'match') {
-    const needle = (match ?? '').trim().toLowerCase();
-    if (needle) {
-      const txt = (o: HTMLOptionElement) => (o.textContent ?? '').trim().toLowerCase();
-      const exact = valid.find((o) => o.value.toLowerCase() === needle || txt(o) === needle);
-      if (exact) return exact;
-      const contains = valid.find((o) => o.value.toLowerCase().includes(needle) || txt(o).includes(needle));
-      if (contains) return contains;
-    }
-    return valid[0] as HTMLOptionElement; // no/blank match -> deterministic fallback
-  }
-  return pick(valid, rng);
+  return chooseFrom(valid as unknown as { value: string; text: string }[], strategy, match, rng) as HTMLOptionElement | null;
 }
 
 function fillSelect(el: HTMLSelectElement, trigger: boolean, rng: Rng, strategy: SelectStrategy, match: string): void {
@@ -212,6 +226,185 @@ function fillSelect(el: HTMLSelectElement, trigger: boolean, rng: Rng, strategy:
   if (!target) return;
   setNativeValue(el, target.value);
   if (trigger) dispatch(el, ['input', 'change']);
+}
+
+// ---------------------------------------------------------------------------
+// ARIA combobox dropdowns (Mantine/MUI/Chakra Select, and other input-based
+// comboboxes).
+//
+// These render as a readonly <input> + a portal <div role="listbox"> of
+// <div role="option">. The input is readonly, so the native value setter is a
+// no-op for the framework's controlled state: the ONLY way to set the value is
+// to open the dropdown and click an option, exactly like a user. Options are
+// portal-rendered asynchronously after the open click (React schedules the
+// re-render on a microtask), so we poll / observe for them to appear, then pick
+// one per the same first/match/random strategy as <select>.
+//
+// Because opening one dropdown can blur-and-close another, fills are serialized
+// through a single promise chain so two comboboxes on the same form each get a
+// stable chance to open and select. fillCombobox() is fire-and-forget: it
+// enqueues and returns immediately so the synchronous fill pass is not blocked;
+// flushComboboxFills() lets callers/tests await completion.
+// ---------------------------------------------------------------------------
+
+const COMBOBOX_OPEN_TIMEOUT_MS = 1500;
+
+/** Serialized queue: only one combobox is open/awaiting options at a time. */
+let comboboxChain: Promise<void> = Promise.resolve();
+
+/** Await all combobox fills enqueued so far (for callers/tests). */
+export function flushComboboxFills(): Promise<void> {
+  return comboboxChain;
+}
+
+/** Test hook: detach pending fills so a failing test cannot leak into the next. */
+export function _resetComboboxQueue(): void {
+  comboboxChain = Promise.resolve();
+}
+
+function fireEvent(el: Element, type: 'pointerdown' | 'mousedown' | 'mouseup'): void {
+  // Realm-correct constructors from the element's own window, so the event
+  // bubbles through the framework's delegated root listener. PointerEvent is
+  // absent in jsdom; guard so tests (which react to plain click) still pass.
+  const Win = el.ownerDocument.defaultView as (typeof window) | null;
+  try {
+    const Ctor = type === 'pointerdown' && Win?.PointerEvent ? Win.PointerEvent : Win?.MouseEvent ?? MouseEvent;
+    el.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true }));
+  } catch {
+    // jsdom/old engines: ignore.
+  }
+}
+
+function openCombobox(el: HTMLElement): void {
+  try {
+    el.focus({ preventScroll: true });
+  } catch {
+    el.focus();
+  }
+  // Realistic open sequence: some libs (Mantine, MUI) open on pointerdown,
+  // others on mousedown or click. Fire all three so whichever the framework
+  // listens for triggers, then .click() (which jsdom fires synchronously).
+  fireEvent(el, 'pointerdown');
+  fireEvent(el, 'mousedown');
+  el.click();
+}
+
+/**
+ * Resolve the listbox that holds this combobox's options, preferring the
+ * explicit aria-controls link (the robust, library-agnostic pointer). Falls
+ * back to the nearest role=listbox, then the whole document.
+ */
+function listboxScope(el: HTMLElement): HTMLElement | Document {
+  const id = el.getAttribute('aria-controls');
+  if (id) {
+    const lb = el.ownerDocument.getElementById(id);
+    if (lb) return lb;
+  }
+  const doc = el.ownerDocument;
+  const lb = doc.querySelector('[role="listbox"]');
+  return (lb as HTMLElement) ?? doc;
+}
+
+/** Visible, non-disabled combobox options inside this combobox's listbox. */
+function comboboxOptions(el: HTMLElement): HTMLElement[] {
+  const scope = listboxScope(el);
+  const all = Array.from(scope.querySelectorAll<HTMLElement>('[role="option"]'));
+  return all.filter((o) => {
+    const disabled =
+      o.getAttribute('aria-disabled') === 'true' || o.hasAttribute('data-disabled') || (o as HTMLButtonElement).disabled;
+    return !disabled;
+  });
+}
+
+function optionValue(o: HTMLElement): string {
+  // The option's internal value (Mantine/common data-value); fall back to its
+  // visible text when the lib does not carry one.
+  return (o.getAttribute('data-value') ?? o.textContent ?? '').trim();
+}
+
+function optionText(o: HTMLElement): string {
+  return (o.textContent ?? '').trim();
+}
+
+function chooseComboboxOption(
+  el: HTMLElement,
+  strategy: SelectStrategy,
+  match: string,
+  rng: Rng,
+): HTMLElement | null {
+  const options = comboboxOptions(el).map((o) => ({ el: o, value: optionValue(o), text: optionText(o) }));
+  const valid = options.filter((o) => o.value !== '');
+  const chosen = chooseFrom(valid, strategy, match, rng);
+  return chosen ? chosen.el : null;
+}
+
+/**
+ * Wait (poll + MutationObserver) for at least one option to render after open.
+ * Options appear async on a microtask once the framework re-renders; in jsdom a
+ * synchronous click handler appends them immediately, so the first poll finds
+ * them and the function resolves on the next microtask.
+ */
+function waitForOptions(el: HTMLElement, timeoutMs: number): Promise<HTMLElement[]> {
+  return new Promise((resolve) => {
+    const immediate = comboboxOptions(el);
+    if (immediate.length) {
+      resolve(immediate);
+      return;
+    }
+    const doc = el.ownerDocument;
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      clearTimeout(timer);
+      resolve(comboboxOptions(el));
+    };
+    const observer = new doc.defaultView!.MutationObserver(done);
+    observer.observe(doc.body, { childList: true, subtree: true });
+    const timer = setTimeout(done, timeoutMs);
+  });
+}
+
+/** Select a single option from this combobox per the configured strategy. */
+function selectCombobox(el: HTMLElement, strategy: SelectStrategy, match: string, rng: Rng): void {
+  const target = chooseComboboxOption(el, strategy, match, rng);
+  if (!target) return;
+  // Same realistic tap as open: some libs commit the selection on pointerdown/
+  // mousedown, others on click.
+  fireEvent(target, 'pointerdown');
+  fireEvent(target, 'mousedown');
+  target.click();
+}
+
+export interface ComboboxFillOptions {
+  strategy?: SelectStrategy;
+  match?: string;
+  rng?: Rng;
+  /** Max ms to wait for the dropdown's options to render after opening. */
+  openTimeoutMs?: number;
+}
+
+/**
+ * Fill an ARIA combobox by opening it and clicking an option. Fire-and-forget:
+ * enqueues onto the serialized combobox chain and returns synchronously (the
+ * fill completes a few frames later). The orchestrator counts the field as
+ * filled optimistically; the selection settles before the user submits.
+ */
+export function fillCombobox(el: HTMLElement, opts: ComboboxFillOptions = {}): void {
+  const strategy = opts.strategy ?? 'random';
+  const match = opts.match ?? '';
+  const rng = opts.rng ?? defaultRng;
+  const timeout = opts.openTimeoutMs ?? COMBOBOX_OPEN_TIMEOUT_MS;
+  const run = async (): Promise<void> => {
+    openCombobox(el);
+    await waitForOptions(el, timeout);
+    selectCombobox(el, strategy, match, rng);
+  };
+  comboboxChain = comboboxChain.then(run).catch(() => {
+    // A single combobox failing (no options, detached node) must not break the
+    // chain for the rest of the form.
+  });
 }
 
 function constrainedFallback(el: HTMLInputElement): string {

@@ -6,8 +6,8 @@
 // Page-level consistency: a name and company are generated once per fill pass
 // and reused so an email derives from the name shown in the name field.
 
-import { fillField, clearContentEditable, isMechanicalType } from './fillers';
-import { describeField, detectType, isContentEditableEl, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
+import { fillField, fillCombobox, clearContentEditable, isMechanicalType } from './fillers';
+import { describeField, detectType, isContentEditableEl, isComboboxDesc, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
 import {
@@ -139,14 +139,17 @@ function hasContent(el: HTMLElement, desc: ReturnType<typeof describeField>): bo
 export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeField>, settings: FillerSettings): boolean {
   if (desc.dataFake === 'skip' || desc.dataFillType === 'skip') return true;
   const input = el as HTMLInputElement;
-  if (desc.type === 'hidden' || input.disabled || input.readOnly) return true;
+  // A readonly field is normally skipped — EXCEPT an ARIA combobox, whose
+  // readonly text input is exactly how a custom dropdown (Mantine/MUI/Chakra)
+  // renders. Those are filled by opening + clicking an option below.
+  if (desc.type === 'hidden' || input.disabled || (input.readOnly && !isComboboxDesc(desc))) return true;
   // Never fill/clear CSRF / anti-forgery / nonce token fields. Overwriting one
   // is what causes Laravel/ASP.NET/Rails submits to fail with "page expired"
   // (419) and can log the user out. type=hidden is already skipped above; this
   // also protects tokens rendered as a non-hidden input.
   if (isSecurityTokenField(desc)) return true;
-  // A disabled dropdown setting skips <select> fields entirely.
-  if (desc.tag === 'select' && !settings.select.enabled) return true;
+  // A disabled dropdown setting skips <select> and combobox fields entirely.
+  if ((desc.tag === 'select' || isComboboxDesc(desc)) && !settings.select.enabled) return true;
   if (matchesAny(desc, settings.fields.ignoreFields)) return true;
   if (settings.fields.ignoreHiddenInvisible && !isVisible(el)) return true;
   if (settings.fields.ignoreFieldsWithContent && hasContent(el, desc)) return true;
@@ -310,6 +313,20 @@ function fillOne(
   } else {
     type = detectType(desc, settings.fields.matchFieldsUsing);
     value = generateValue(type, el, desc, settings, page, rng);
+  }
+
+  // ARIA combobox dropdowns (Mantine/MUI/Chakra Select, and other input-based
+  // comboboxes) are filled by opening the dropdown and clicking an option, not
+  // by setting a value on the readonly input. A custom rule's resolved value
+  // (if any) pins the option via 'match'; otherwise the configured select
+  // strategy/match applies.
+  if (type === 'combobox') {
+    if (matched && value) {
+      fillCombobox(el, { strategy: 'match', match: value, rng });
+    } else {
+      fillCombobox(el, { strategy: settings.select.strategy, match: settings.select.match, rng });
+    }
+    return { filled: true };
   }
 
   fillField(el, type, value, {

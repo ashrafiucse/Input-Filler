@@ -5,6 +5,7 @@
 // Orchestration lives in src/lib/orchestrate.ts (unit-tested).
 
 import { fillAllForms, fillCurrentForm, clearAllForms } from '@/src/lib/orchestrate';
+import { flushComboboxFills } from '@/src/lib/fillers';
 import { isOnDeviceAIAvailable, enhanceTextFieldsWithAI } from '@/src/lib/on-device-ai';
 import { loadSettings, getDefaultStorageAdapter } from '@/src/lib/settings';
 import { loadRules } from '@/src/lib/rules';
@@ -36,13 +37,21 @@ export default defineContentScript({
         switch (action) {
           case 'fillAll': {
             const result = fillAllForms(document, { settings, rules, origin });
+            // Combobox (Mantine/MUI/Chakra) fills are queued because opening a
+            // dropdown and waiting for its portal options to render is async;
+            // settle them before reporting the fill done (and before the optional
+            // AI pass, which only refines free-text fields and never touches them).
+            await flushComboboxFills();
             if (settings.general.useOnDeviceAI && isOnDeviceAIAvailable()) {
               await enhanceTextFieldsWithAI(document, settings);
             }
             return result;
           }
-          case 'fillForm':
-            return fillCurrentForm(document, lastFocused ?? document.activeElement, { settings, rules, origin });
+          case 'fillForm': {
+            const result = fillCurrentForm(document, lastFocused ?? document.activeElement, { settings, rules, origin });
+            await flushComboboxFills();
+            return result;
+          }
           case 'clear':
             return { cleared: clearAllForms(document) };
           default:
