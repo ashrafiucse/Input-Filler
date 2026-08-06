@@ -153,6 +153,21 @@ export function password(opts: { length?: number; rng?: Rng } = {}): string {
   return chars.join('');
 }
 
+// Stripe-style TEST card values (never real PANs). Defaults for the Test card
+// setting; also exposed as pure generators for Custom Rules / generateByName.
+export const CARD_NUMBER = '4242 4242 4242 4242';
+export const CARD_EXPIRY = '01 / 35';
+export const CARD_CVC = '121';
+export function cardNumber(): string {
+  return CARD_NUMBER;
+}
+export function cardExpiry(): string {
+  return CARD_EXPIRY;
+}
+export function cardCvc(): string {
+  return CARD_CVC;
+}
+
 export function sentence(theme: TextTheme = 'general', rng: Rng = defaultRng): string {
   return randomSentence(theme, rng);
 }
@@ -298,6 +313,9 @@ export const BUILTIN_GENERATORS = new Set<string>([
   'date',
   'color',
   'password',
+  'cardNumber',
+  'cardExpiry',
+  'cardCvc',
   'dummyText',
   'title',
   'searchTerm',
@@ -361,6 +379,12 @@ export function generateByName(name: string, rng: Rng = defaultRng): string {
       return color(rng);
     case 'password':
       return password({ rng });
+    case 'cardNumber':
+      return cardNumber();
+    case 'cardExpiry':
+      return cardExpiry();
+    case 'cardCvc':
+      return cardCvc();
     case 'dummyText':
       return dummyText(200, 'general', rng);
     case 'title':

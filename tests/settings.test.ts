@@ -95,3 +95,17 @@ describe('select (dropdown) settings', () => {
     expect(mergeDefaults({}).select).toEqual({ enabled: true, strategy: 'random', match: '' });
   });
 });
+
+describe('card (test payment) settings', () => {
+  it('defaults to the Stripe-style test card', () => {
+    expect(DEFAULT_SETTINGS.card).toEqual({ number: '4242 4242 4242 4242', expiry: '01 / 35', cvc: '121' });
+  });
+  it('merges stored card values', () => {
+    const s = mergeDefaults({ card: { number: '4000 0000 0000 0002', expiry: '11 / 38', cvc: '999' } });
+    expect(s.card).toEqual({ number: '4000 0000 0000 0002', expiry: '11 / 38', cvc: '999' });
+  });
+  it('falls back to defaults for blank/missing card fields', () => {
+    expect(mergeDefaults({ card: { number: '', expiry: '01 / 35', cvc: '' } }).card).toEqual(DEFAULT_SETTINGS.card);
+    expect(mergeDefaults({}).card).toEqual(DEFAULT_SETTINGS.card);
+  });
+});

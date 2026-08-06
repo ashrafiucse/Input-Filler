@@ -230,6 +230,12 @@ function generateValue(
         return settings.password.fixedValue;
       }
       return genPassword({ length: settings.password.length, rng });
+    case 'cc_number':
+      return settings.card.number;
+    case 'cc_exp':
+      return settings.card.expiry;
+    case 'cc_csc':
+      return settings.card.cvc;
     case 'paragraph': {
       // Textareas get a readable multi-sentence paragraph, capped by the
       // field's own maxlength or the configured default.

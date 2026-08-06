@@ -1,6 +1,7 @@
 // Field-type detection. Returns one logical type per field. Priority:
 //   data-fake hint -> embed/custom-code -> <select> (always mechanical)
-//   -> autocomplete -> input type/inputmode -> placeholder SHAPE (email/url/password)
+//   -> autocomplete (incl. cc-number/cc-exp/cc-csc) / card label -> input type/inputmode
+//   -> placeholder SHAPE (email/url/password)
 //   -> free-text short-circuit (textarea/contenteditable)
 //   -> regex over the configured match attributes -> element-type fallback.
 //
@@ -155,7 +156,9 @@ const AUTOCOMPLETE_MAP: Record<string, LogicalType> = {
   'current-password': 'password',
   'new-password': 'password',
   url: 'url',
-  'cc-number': 'text',
+  'cc-number': 'cc_number',
+  'cc-exp': 'cc_exp',
+  'cc-csc': 'cc_csc',
 };
 
 function mapAutocomplete(ac: string): LogicalType | undefined {
@@ -164,6 +167,26 @@ function mapAutocomplete(ac: string): LogicalType | undefined {
   // autocomplete may be space-separated tokens; take the first meaningful one.
   const first = key.split(/\s+/)[0] as string;
   return AUTOCOMPLETE_MAP[first] ?? (AUTOCOMPLETE_MAP[key] ?? undefined);
+}
+
+/**
+ * Detect a card field without an autocomplete hint, from its label/name/id/
+ * placeholder/aria (e.g. "Card number", "Expiration", "CVC", name="cardNumber").
+ * Caught before input type/inputmode so a numeric-inputmode CVC is not mistaken
+ * for a generic number. cc-* autocomplete already maps in step 4; this is the
+ * fallback for checkouts that omit it.
+ */
+function cardSignal(desc: FieldDescriptor): LogicalType | undefined {
+  const hay = [desc.name, desc.id, desc.placeholder, desc.ariaLabel, desc.label]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/[_\-]+/g, ' ');
+  if (!hay) return undefined;
+  if (/(?:cc|card)\s*number|card\s*no\b/.test(hay)) return 'cc_number';
+  if (/expir|expiry|(?:cc|card)\s*exp/.test(hay)) return 'cc_exp';
+  if (/cvc|cvv|csc|security\s*code|card\s*code|cid\b/.test(hay)) return 'cc_csc';
+  return undefined;
 }
 
 function mapType(desc: FieldDescriptor): LogicalType | undefined {
@@ -363,6 +386,12 @@ export function detectType(
     const ac = mapAutocomplete(desc.autocomplete);
     if (ac) return ac;
   }
+
+  // 4b. Card field by label/name/placeholder/aria (e.g. "Card number",
+  //     "Expiration", "CVC", name="cardNumber") — before input type/inputmode
+  //     so a numeric-inputmode CVC is not mistaken for a generic number.
+  const card = cardSignal(desc);
+  if (card) return card;
 
   // 5. input type (email/tel/url/number/date/color/checkbox/radio/range/password/search),
   //    then inputmode. Many UI libs (Mantine, MUI, Chakra) render a number/phone/

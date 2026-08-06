@@ -61,6 +61,9 @@ function populateSettings(): void {
   ($('pw-length') as HTMLInputElement).valueAsNumber = settings.password.length;
   setVal('pw-fixed', settings.password.fixedValue);
   setChecked('pw-log', settings.password.logToConsole);
+  setVal('c-number', settings.card.number);
+  setVal('c-exp', settings.card.expiry);
+  setVal('c-cvc', settings.card.cvc);
   setVal('f-ignore', settings.fields.ignoreFields.join(', '));
   setVal('f-confirm', settings.fields.confirmationFields.join(', '));
   setVal('f-agree', settings.fields.agreeToTermsFields.join(', '));
@@ -89,6 +92,11 @@ function collectSettings(): FillerSettings {
       length: ($('pw-length') as HTMLInputElement).valueAsNumber || 12,
       fixedValue: val('pw-fixed'),
       logToConsole: checked('pw-log'),
+    },
+    card: {
+      number: val('c-number').trim(),
+      expiry: val('c-exp').trim(),
+      cvc: val('c-cvc').trim(),
     },
     fields: {
       ...settings.fields,
@@ -260,7 +268,7 @@ async function init(): Promise<void> {
   renderRules();
 
   for (const id of [
-    'pw-mode', 'pw-length', 'pw-fixed', 'pw-log', 'f-ignore', 'f-confirm', 'f-agree', 'f-maxlen',
+    'pw-mode', 'pw-length', 'pw-fixed', 'pw-log', 'c-number', 'c-exp', 'c-cvc', 'f-ignore', 'f-confirm', 'f-agree', 'f-maxlen',
     'f-skiphidden', 'f-skipfilled', 's-enabled', 's-strategy', 's-match',
     'g-events', 'g-menu', 'g-ai', 'g-domains', 'g-emaildomain', 'g-theme-text', 'g-theme-ui',
   ]) {

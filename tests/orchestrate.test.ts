@@ -435,8 +435,7 @@ describe('media provider filling (named provider wins, else any)', () => {
   });
 });
 
-describe('dropdown (select) options', () => {
-  it('skips <select> fields when filling is disabled', () => {
+describe('dropdown (select) options', () => {  it('skips <select> fields when filling is disabled', () => {
     setDoc(`
       <form>
         <input name="name" type="text">
@@ -456,5 +455,34 @@ describe('dropdown (select) options', () => {
     setDoc(`<form><select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro">Pro</option></select></form>`);
     fillAllForms(document, ctx({ select: { enabled: true, strategy: 'match', match: 'Pro' } }));
     expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('pro');
+  });
+});
+
+describe('checkout card fields', () => {
+  it('fills card number, expiry, and CVC from the test-card settings', () => {
+    setDoc(`
+      <form>
+        <input name="cardNumber" autocomplete="cc-number" type="text" inputmode="numeric" aria-label="Card number" placeholder="1234 1234 1234 1234">
+        <input name="cardExpiry" autocomplete="cc-exp" type="text" inputmode="numeric" aria-label="Expiration" placeholder="MM / YY">
+        <input name="cardCvc" autocomplete="cc-csc" type="text" inputmode="numeric" aria-label="CVC" placeholder="CVC">
+      </form>
+    `);
+    fillAllForms(document, ctx());
+    const q = (n: string) => document.querySelector(`[name=${n}]`) as HTMLInputElement;
+    expect(q('cardNumber').value).toBe('4242 4242 4242 4242');
+    expect(q('cardExpiry').value).toBe('01 / 35');
+    expect(q('cardCvc').value).toBe('121');
+  });
+  it('honors custom test-card values from settings', () => {
+    setDoc(`<form>
+      <input name="cardNumber" autocomplete="cc-number" type="text">
+      <input name="cardExpiry" autocomplete="cc-exp" type="text">
+      <input name="cardCvc" autocomplete="cc-csc" type="text">
+    </form>`);
+    fillAllForms(document, ctx({ card: { number: '4000 0000 0000 0002', expiry: '11 / 38', cvc: '999' } }));
+    const q = (n: string) => document.querySelector(`[name=${n}]`) as HTMLInputElement;
+    expect(q('cardNumber').value).toBe('4000 0000 0000 0002');
+    expect(q('cardExpiry').value).toBe('11 / 38');
+    expect(q('cardCvc').value).toBe('999');
   });
 });

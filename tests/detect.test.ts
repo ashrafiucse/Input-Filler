@@ -153,6 +153,25 @@ describe('media provider detection (video / audio)', () => {
   });
 });
 
+describe('card fields (checkout)', () => {
+  it('autocomplete cc-* maps to card types', () => {
+    expect(detectType(input({ autocomplete: 'cc-number' }))).toBe('cc_number');
+    expect(detectType(input({ autocomplete: 'cc-exp' }))).toBe('cc_exp');
+    expect(detectType(input({ autocomplete: 'cc-csc' }))).toBe('cc_csc');
+  });
+  it('detects card fields by label/name/aria without autocomplete', () => {
+    expect(detectType(input({ name: 'cardNumber', ariaLabel: 'Card number', placeholder: '1234 1234 1234 1234' }))).toBe('cc_number');
+    expect(detectType(input({ ariaLabel: 'Expiration', placeholder: 'MM / YY' }))).toBe('cc_exp');
+    expect(detectType(input({ name: 'cardCvc', ariaLabel: 'CVC', placeholder: 'CVC' }))).toBe('cc_csc');
+  });
+  it('a numeric-inputmode CVC is cc_csc, not a generic number', () => {
+    expect(detectType(input({ type: 'text', inputMode: 'numeric', name: 'cardCvc', ariaLabel: 'CVC' }))).toBe('cc_csc');
+  });
+  it('a bare numeric inputmode (no card signal) is still number', () => {
+    expect(detectType(input({ type: 'text', inputMode: 'numeric', name: 'quantity' }))).toBe('number');
+  });
+});
+
 describe('resolveMediaProvider (named provider wins)', () => {
   it('returns the named provider', () => {
     expect(resolveMediaProvider(input({ label: 'YouTube embed' }))).toBe('youtube');

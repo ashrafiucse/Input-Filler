@@ -17,6 +17,14 @@ export interface FillerSettings {
     fixedValue: string;
     logToConsole: boolean;
   };
+  card: {
+    /** Test card number (Stripe-style test cards; never real PANs). */
+    number: string;
+    /** Card expiry, formatted to the field's placeholder (e.g. "01 / 35"). */
+    expiry: string;
+    /** Card security code. */
+    cvc: string;
+  };
   fields: {
     ignoreFields: string[];
     ignoreHiddenInvisible: boolean;
@@ -62,6 +70,7 @@ const ALL_MATCH_ATTRS: MatchAttribute[] = [
 
 export const DEFAULT_SETTINGS: FillerSettings = {
   password: { mode: 'fixed', length: 12, fixedValue: 'Test@1234', logToConsole: false },
+  card: { number: '4242 4242 4242 4242', expiry: '01 / 35', cvc: '121' },
   fields: {
     ignoreFields: ['captcha', 'hipinputtext'],
     ignoreHiddenInvisible: true,
@@ -106,8 +115,14 @@ export function mergeDefaults(raw: unknown): FillerSettings {
   const f = s.fields ?? d.fields;
   const g = s.general ?? d.general;
   const sel = s.select ?? d.select;
+  const card = s.card ?? d.card;
   return {
     password: { ...d.password, ...(s.password ?? {}) },
+    card: {
+      number: typeof card.number === 'string' && card.number.trim() ? card.number.trim() : d.card.number,
+      expiry: typeof card.expiry === 'string' && card.expiry.trim() ? card.expiry.trim() : d.card.expiry,
+      cvc: typeof card.cvc === 'string' && card.cvc.trim() ? card.cvc.trim() : d.card.cvc,
+    },
     fields: {
       ignoreFields: strArr(f.ignoreFields, d.fields.ignoreFields),
       ignoreHiddenInvisible: typeof f.ignoreHiddenInvisible === 'boolean' ? f.ignoreHiddenInvisible : d.fields.ignoreHiddenInvisible,

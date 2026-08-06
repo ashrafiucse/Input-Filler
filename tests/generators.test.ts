@@ -33,6 +33,9 @@ import {
   audioUrl,
   generateByName,
   BUILTIN_GENERATORS,
+  cardNumber,
+  cardExpiry,
+  cardCvc,
 } from '../src/lib/generators';
 import { dummyText, CORPUS } from '../src/lib/text';
 import { FIRST_NAMES, LAST_NAMES } from '../src/lib/wordlists';
@@ -113,6 +116,19 @@ describe('American name pools', () => {
     expect(FIRST_NAMES).not.toContain('Priya');
     expect(LAST_NAMES).not.toContain('Patel');
     expect(LAST_NAMES).not.toContain('Nguyen');
+  });
+});
+
+describe('test card generators', () => {
+  it('card generators return the Stripe-style test values', () => {
+    expect(cardNumber()).toBe('4242 4242 4242 4242');
+    expect(cardExpiry()).toBe('01 / 35');
+    expect(cardCvc()).toBe('121');
+  });
+  it('generateByName exposes the card generators', () => {
+    expect(generateByName('cardNumber')).toBe('4242 4242 4242 4242');
+    expect(generateByName('cardExpiry')).toBe('01 / 35');
+    expect(generateByName('cardCvc')).toBe('121');
   });
 });
 
