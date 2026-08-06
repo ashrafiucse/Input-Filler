@@ -245,15 +245,34 @@ function isEmbedField(desc: FieldDescriptor): boolean {
  * (YouTube/Vimeo/Loom). Used both to route embed fields (audio vs video embed)
  * and to turn a media-URL field into a real provider link ahead of type=url.
  */
-function mediaContext(desc: FieldDescriptor): 'audio' | 'video' | undefined {
-  const hay = [desc.placeholder, desc.label, desc.ariaLabel, desc.name, desc.id, desc.className]
+export type MediaProvider = 'youtube' | 'vimeo' | 'spotify' | 'soundcloud';
+
+/** Audio vs video context from provider keywords/domains or the bare words. */
+export function mediaContext(desc: FieldDescriptor): 'audio' | 'video' | undefined {
+  const hay = mediaHaystack(desc);
+  if (!hay) return undefined;
+  if (/\b(spotify|soundcloud|audio|podcast)\b/.test(hay) || /spotify\.com|soundcloud\.com/.test(hay)) return 'audio';
+  if (/\b(youtube|youtu\.be|vimeo|loom|video)\b/.test(hay) || /youtube\.com|vimeo\.com/.test(hay)) return 'video';
+  return undefined;
+}
+
+/** The specific provider named by the field, if any (used to pin an embed/link). */
+export function resolveMediaProvider(desc: FieldDescriptor): MediaProvider | undefined {
+  const hay = mediaHaystack(desc);
+  if (!hay) return undefined;
+  if (/\bspotify\b/.test(hay) || /spotify\.com/.test(hay)) return 'spotify';
+  if (/\bsoundcloud\b/.test(hay) || /soundcloud\.com/.test(hay)) return 'soundcloud';
+  if (/\b(youtube|youtu\.be)\b/.test(hay) || /youtube\.com/.test(hay)) return 'youtube';
+  if (/\bvimeo\b/.test(hay) || /vimeo\.com/.test(hay)) return 'vimeo';
+  return undefined;
+}
+
+function mediaHaystack(desc: FieldDescriptor): string {
+  return [desc.placeholder, desc.label, desc.ariaLabel, desc.name, desc.id, desc.className]
     .filter(Boolean)
     .join(' ')
-    .toLowerCase();
-  if (!hay) return undefined;
-  if (/\b(spotify|soundcloud)\b/.test(hay) || /spotify\.com|soundcloud\.com/.test(hay)) return 'audio';
-  if (/\b(youtube|youtu\.be|vimeo|loom)\b/.test(hay) || /youtube\.com|vimeo\.com/.test(hay)) return 'video';
-  return undefined;
+    .toLowerCase()
+    .replace(/[_\-/]+/g, ' '); // snake/kebab/slash → spaces so \b matches "spotify_track"
 }
 
 function buildHaystack(desc: FieldDescriptor, attrs: MatchAttribute[]): string {
@@ -297,8 +316,8 @@ export function detectType(
 
   // 2. Embed / custom-code fields (HTML/iframe placeholder) — any tag, before
   //    the free-text short-circuit so an <iframe> textarea gets a real embed.
-  //    Audio providers (Spotify/SoundCloud) route to an audio embed.
-  if (isEmbedField(desc)) return mediaContext(desc) === 'audio' ? 'audio_embed' : 'embed';
+  //    Which provider's embed is chosen at fill time from the field's context.
+  if (isEmbedField(desc)) return 'embed';
 
   // 3. <select> is always mechanical: pick a valid <option>. Generating a typed
   //    string and assigning it usually selects nothing, so a select is never

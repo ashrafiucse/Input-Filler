@@ -93,11 +93,16 @@ export function dummyTextFromBank(maxLen: number, bank: readonly string[], rng: 
   }
   if (out.length) return out.join(' ');
 
-  // No corpus sentence fit — grammatical fallback, clipped to a word boundary.
-  const g = grammarSentence(rng);
-  const clipped = clipToWordBoundary(g, maxLen);
-  if (clipped) return clipped;
-  return clipToWordBoundary(pick(GRAMMAR_OBJECTS, rng), maxLen);
+  // No corpus sentence fit — grammatical fallback. Prefer a whole grammar
+  // sentence that fits (ends with '.'); only emit a single clipped word if even
+  // the shortest grammar sentence exceeds the budget, so we never return a
+  // multi-word fragment that ends mid-sentence.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const g = grammarSentence(rng);
+    if (g.length <= maxLen) return g;
+  }
+  const word = pick(GRAMMAR_OBJECTS, rng).replace(/^the\s+/i, '');
+  return clipToWordBoundary(word, maxLen);
 }
 
 /** Readable text fitted to `maxLen`, drawn from the theme's corpus bank. */

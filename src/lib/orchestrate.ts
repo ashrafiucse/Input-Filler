@@ -7,7 +7,7 @@
 // and reused so an email derives from the name shown in the name field.
 
 import { fillField, clearContentEditable, isMechanicalType } from './fillers';
-import { describeField, detectType, isContentEditableEl } from './detect';
+import { describeField, detectType, isContentEditableEl, resolveMediaProvider, mediaContext } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
 import {
@@ -34,10 +34,8 @@ import {
   subdomain as genSubdomain,
   taxName as genTaxName,
   objective as genObjective,
-  embedCode as genEmbedCode,
-  videoUrl as genVideoUrl,
-  audioUrl as genAudioUrl,
-  audioEmbed as genAudioEmbed,
+  embedFor,
+  linkFor,
 } from './generators';
 import { type Rng, defaultRng } from './rng';
 import type { TextTheme } from './text';
@@ -208,13 +206,11 @@ function generateValue(
     case 'objective':
       return genObjective(rng);
     case 'embed':
-      return genEmbedCode(rng);
+      return embedFor(resolveMediaProvider(desc), mediaContext(desc), rng);
     case 'video_url':
-      return genVideoUrl(rng);
+      return linkFor(resolveMediaProvider(desc), 'video', rng);
     case 'audio_url':
-      return genAudioUrl(rng);
-    case 'audio_embed':
-      return genAudioEmbed(rng);
+      return linkFor(resolveMediaProvider(desc), 'audio', rng);
     case 'date':
       return date(rng);
     case 'color':

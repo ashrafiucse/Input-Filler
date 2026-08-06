@@ -403,3 +403,34 @@ describe('type-aware filling (placeholder/label → fitting data)', () => {
     expect((document.querySelector('select') as HTMLSelectElement).value).not.toBe('');
   });
 });
+
+describe('media provider filling (named provider wins, else any)', () => {
+  it('a YouTube-named embed field gets the YouTube iframe', () => {
+    setDoc(`<form>
+      <label for="e">YouTube embed</label>
+      <textarea id="e" name="embed" placeholder="<iframe src=…></iframe>"></textarea>
+    </form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toContain('youtube.com/embed');
+  });
+  it('a Spotify-named embed field gets the Spotify iframe', () => {
+    setDoc(`<form>
+      <label for="e">Spotify embed</label>
+      <textarea id="e" name="embed" placeholder="<iframe src=…></iframe>"></textarea>
+    </form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toContain('open.spotify.com/embed');
+  });
+  it('a video-URL field naming YouTube gets the YouTube watch link', () => {
+    setDoc(`<form><input name="v" type="url" placeholder="Paste YouTube URL"></form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('input') as HTMLInputElement).value).toContain('youtube.com/watch');
+  });
+  it('a generic embed field (no provider) gets some real embed', () => {
+    setDoc(`<form><textarea name="embed" placeholder="<iframe></iframe>"></textarea></form>`);
+    fillAllForms(document, ctx());
+    const v = (document.querySelector('textarea') as HTMLTextAreaElement).value;
+    expect(v.startsWith('<iframe')).toBe(true);
+    expect(/youtube|vimeo|spotify|soundcloud/.test(v)).toBe(true);
+  });
+});

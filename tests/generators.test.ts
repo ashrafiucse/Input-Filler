@@ -26,6 +26,8 @@ import {
   taxName,
   objective,
   embedCode,
+  embedFor,
+  linkFor,
   audioEmbed,
   videoUrl,
   audioUrl,
@@ -186,11 +188,21 @@ describe('content-aware generators', () => {
     const out = objective(createRng(1));
     expect(out.endsWith('.')).toBe(true);
   });
-  it('embedCode yields a real YouTube/Vimeo embed iframe', () => {
+  it('embedCode yields a real embed iframe (any provider)', () => {
     const out = embedCode(createRng(1));
     expect(out.startsWith('<iframe')).toBe(true);
     expect(out.endsWith('</iframe>')).toBe(true);
-    expect(/youtube\.com\/embed|player\.vimeo\.com/.test(out)).toBe(true);
+    expect(/youtube\.com\/embed|player\.vimeo\.com|open\.spotify\.com\/embed|w\.soundcloud\.com\/player/.test(out)).toBe(true);
+  });
+  it('embedFor / linkFor pin a named provider', () => {
+    expect(embedFor('youtube', undefined, createRng(1))).toContain('youtube.com/embed');
+    expect(embedFor('spotify', undefined, createRng(1))).toContain('open.spotify.com/embed');
+    expect(linkFor('vimeo', undefined, createRng(1))).toContain('vimeo.com');
+    expect(linkFor('soundcloud', undefined, createRng(1))).toContain('soundcloud.com');
+  });
+  it('embedFor with no provider/category rotates any provider', () => {
+    const samples = new Set(Array.from({ length: 40 }, () => embedFor(undefined, undefined, createRng(Math.random() * 1e6))));
+    expect(samples.size).toBeGreaterThan(1);
   });
   it('audioEmbed yields a real Spotify/SoundCloud embed iframe', () => {
     const out = audioEmbed(createRng(1));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectType, type FieldDescriptor } from '../src/lib/detect';
+import { detectType, resolveMediaProvider, type FieldDescriptor } from '../src/lib/detect';
 
 function input(attrs: Partial<FieldDescriptor> = {}): FieldDescriptor {
   return { tag: 'input', type: 'text', ...attrs };
@@ -143,15 +143,25 @@ describe('media provider detection (video / audio)', () => {
     expect(detectType(input({ label: 'Spotify URL' }))).toBe('audio_url');
     expect(detectType(input({ placeholder: 'Paste SoundCloud track link…' }))).toBe('audio_url');
   });
-  it('a Spotify/SoundCloud embed iframe is audio_embed', () => {
-    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://open.spotify.com/embed/album/…"></iframe>' })).toBe('audio_embed');
-    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://w.soundcloud.com/player/?url=…"></iframe>' })).toBe('audio_embed');
-  });
-  it('a YouTube/Vimeo embed iframe is embed (video)', () => {
+  it('all embed iframes resolve to embed (provider chosen at fill time)', () => {
+    expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://open.spotify.com/embed/album/…"></iframe>' })).toBe('embed');
     expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://www.youtube.com/embed/…"></iframe>' })).toBe('embed');
     expect(detectType({ tag: 'textarea', placeholder: '<iframe src="https://player.vimeo.com/video/…"></iframe>' })).toBe('embed');
   });
   it('a generic website URL is still url (not media)', () => {
     expect(detectType(input({ label: 'Website', type: 'url' }))).toBe('url');
+  });
+});
+
+describe('resolveMediaProvider (named provider wins)', () => {
+  it('returns the named provider', () => {
+    expect(resolveMediaProvider(input({ label: 'YouTube embed' }))).toBe('youtube');
+    expect(resolveMediaProvider(input({ placeholder: 'Paste Vimeo URL' }))).toBe('vimeo');
+    expect(resolveMediaProvider(input({ name: 'spotify_track' }))).toBe('spotify');
+    expect(resolveMediaProvider(input({ label: 'SoundCloud' }))).toBe('soundcloud');
+  });
+  it('returns undefined when no provider is named', () => {
+    expect(resolveMediaProvider(input({ label: 'Embed code' }))).toBeUndefined();
+    expect(resolveMediaProvider(input({ placeholder: 'Paste a video URL' }))).toBeUndefined();
   });
 });
