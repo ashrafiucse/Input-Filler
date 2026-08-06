@@ -165,3 +165,39 @@ describe('resolveMediaProvider (named provider wins)', () => {
     expect(resolveMediaProvider(input({ placeholder: 'Paste a video URL' }))).toBeUndefined();
   });
 });
+
+describe('inputmode signals (library-rendered inputs)', () => {
+  it('a Mantine NumberInput (type=text, inputmode=decimal) is a number', () => {
+    // Exact shape reported in the wild: Mantine renders NumberInput as a text
+    // input carrying inputmode="decimal". type="text" alone yields nothing, so
+    // without inputmode this field fell through to a sentence and was rejected.
+    expect(
+      detectType(
+        input({
+          type: 'text',
+          inputMode: 'decimal',
+          className: 'm_8fb7ebe7 mantine-Input-input mantine-NumberInput-input',
+          id: 'mantine-mqt873yg0',
+        }),
+      ),
+    ).toBe('number');
+  });
+  it('decimal / numeric inputmode -> number', () => {
+    expect(detectType(input({ inputMode: 'decimal' }))).toBe('number');
+    expect(detectType(input({ inputMode: 'numeric' }))).toBe('number');
+    expect(detectType(input({ inputMode: 'DECIMAL' }))).toBe('number'); // case-insensitive
+  });
+  it('tel / email / url / search inputmode map like their input type', () => {
+    expect(detectType(input({ inputMode: 'tel' }))).toBe('phone');
+    expect(detectType(input({ inputMode: 'email' }))).toBe('email');
+    expect(detectType(input({ inputMode: 'url' }))).toBe('url');
+    expect(detectType(input({ inputMode: 'search' }))).toBe('search');
+  });
+  it('an explicit input type beats inputmode', () => {
+    expect(detectType(input({ type: 'email', inputMode: 'decimal' }))).toBe('email');
+  });
+  it('a text inputmode (or none) does not change the fallback', () => {
+    expect(detectType(input({ inputMode: 'text', name: 'q' }))).toBe('sentence');
+    expect(detectType(input({ name: 'q' }))).toBe('sentence');
+  });
+});

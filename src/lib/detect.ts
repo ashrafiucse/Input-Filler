@@ -1,6 +1,6 @@
 // Field-type detection. Returns one logical type per field. Priority:
 //   data-fake hint -> embed/custom-code -> <select> (always mechanical)
-//   -> autocomplete -> input type -> placeholder SHAPE (email/url/password)
+//   -> autocomplete -> input type/inputmode -> placeholder SHAPE (email/url/password)
 //   -> free-text short-circuit (textarea/contenteditable)
 //   -> regex over the configured match attributes -> element-type fallback.
 //
@@ -35,6 +35,7 @@ export type LogicalType = string;
 export interface FieldDescriptor {
   tag: string; // 'input' | 'textarea' | 'select'
   type?: string;
+  inputMode?: string;
   name?: string;
   id?: string;
   placeholder?: string;
@@ -69,6 +70,7 @@ export function describeField(el: Element): FieldDescriptor {
   return {
     tag,
     type: get('type'),
+    inputMode: get('inputmode'),
     name: get('name'),
     id: get('id'),
     // Rich-text editors (TipTap/ProseMirror) expose their hint via data-placeholder
@@ -190,6 +192,30 @@ function mapType(desc: FieldDescriptor): LogicalType | undefined {
       return 'range';
     case 'password':
       return 'password';
+    case 'search':
+      return 'search';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Map `inputmode` to a logical type. UI libraries (Mantine, MUI, Chakra) often
+ * render numeric/phone/email inputs as type="text" with an inputmode hint to
+ * sidestep native input quirks (type=number rejecting shortcuts, scroll-to-
+ * change, etc.), so inputmode is the real signal on those rendered fields.
+ */
+function mapInputMode(desc: FieldDescriptor): LogicalType | undefined {
+  switch ((desc.inputMode ?? '').toLowerCase()) {
+    case 'decimal':
+    case 'numeric':
+      return 'number';
+    case 'tel':
+      return 'phone';
+    case 'email':
+      return 'email';
+    case 'url':
+      return 'url';
     case 'search':
       return 'search';
     default:
@@ -338,11 +364,16 @@ export function detectType(
     if (ac) return ac;
   }
 
-  // 5. input type (email/tel/url/number/date/color/checkbox/radio/range/password/search).
+  // 5. input type (email/tel/url/number/date/color/checkbox/radio/range/password/search),
+  //    then inputmode. Many UI libs (Mantine, MUI, Chakra) render a number/phone/
+  //    email input as type="text" with inputmode="decimal"/"tel"/…, so inputmode
+  //    is the real signal there (e.g. a Mantine NumberInput fills as a number).
   if (desc.type) {
     const t = mapType(desc);
     if (t) return t;
   }
+  const im = mapInputMode(desc);
+  if (im) return im;
 
   // 6. Placeholder SHAPE — an email/URL/password example implies that type even
   //    with no keyword in the label (e.g. placeholder "name@example.com").
