@@ -8,9 +8,15 @@
 import { pick, type Rng, defaultRng } from './rng';
 import { isContentEditableEl, type LogicalType } from './detect';
 
+export type SelectStrategy = 'random' | 'first' | 'match';
+
 export interface FillOptions {
   triggerEvents?: boolean;
   rng?: Rng;
+  /** How to choose a <select> option. Defaults to 'random'. */
+  selectStrategy?: SelectStrategy;
+  /** For selectStrategy 'match': option value or visible text to match. */
+  selectMatch?: string;
 }
 
 const MECHANICAL = new Set<LogicalType>(['checkbox', 'radio', 'select']);
@@ -170,10 +176,40 @@ function fillRadio(el: HTMLInputElement, trigger: boolean): void {
   if (trigger) dispatch(target, ['click', 'change']);
 }
 
-function fillSelect(el: HTMLSelectElement, trigger: boolean, rng: Rng): void {
+/**
+ * Choose a <select> option per the configured strategy:
+ *  - 'first':  always the first valid (non-disabled, non-empty) option;
+ *  - 'match':  the first option whose value OR visible text equals (then
+ *              contains) the configured needle; falls back to 'first' when no
+ *              option matches or the needle is blank;
+ *  - 'random': a random valid option (the default).
+ */
+function chooseOption(
+  el: HTMLSelectElement,
+  strategy: SelectStrategy,
+  match: string,
+  rng: Rng,
+): HTMLOptionElement | null {
   const valid = Array.from(el.options).filter((o) => !o.disabled && o.value !== '');
-  if (valid.length === 0) return;
-  const target = pick(valid, rng);
+  if (valid.length === 0) return null;
+  if (strategy === 'first') return valid[0] as HTMLOptionElement;
+  if (strategy === 'match') {
+    const needle = (match ?? '').trim().toLowerCase();
+    if (needle) {
+      const txt = (o: HTMLOptionElement) => (o.textContent ?? '').trim().toLowerCase();
+      const exact = valid.find((o) => o.value.toLowerCase() === needle || txt(o) === needle);
+      if (exact) return exact;
+      const contains = valid.find((o) => o.value.toLowerCase().includes(needle) || txt(o).includes(needle));
+      if (contains) return contains;
+    }
+    return valid[0] as HTMLOptionElement; // no/blank match -> deterministic fallback
+  }
+  return pick(valid, rng);
+}
+
+function fillSelect(el: HTMLSelectElement, trigger: boolean, rng: Rng, strategy: SelectStrategy, match: string): void {
+  const target = chooseOption(el, strategy, match, rng);
+  if (!target) return;
   setNativeValue(el, target.value);
   if (trigger) dispatch(el, ['input', 'change']);
 }
@@ -213,7 +249,7 @@ export function fillField(
       fillRadio(el as HTMLInputElement, trigger);
       return;
     case 'select':
-      fillSelect(el as HTMLSelectElement, trigger, rng);
+      fillSelect(el as HTMLSelectElement, trigger, rng, opts.selectStrategy ?? 'random', opts.selectMatch ?? '');
       return;
     case 'number':
     case 'range': {

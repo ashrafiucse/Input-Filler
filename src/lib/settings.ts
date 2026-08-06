@@ -26,6 +26,14 @@ export interface FillerSettings {
     matchFieldsUsing: MatchAttribute[];
     maxLength: number;
   };
+  select: {
+    /** When false, <select> dropdowns are skipped entirely (never filled). */
+    enabled: boolean;
+    /** How to choose an option: random valid, always the first valid, or a fixed value/text. */
+    strategy: 'random' | 'first' | 'match';
+    /** For strategy 'match': pick the option whose value or visible text matches this. */
+    match: string;
+  };
   general: {
     triggerEvents: boolean;
     contextMenu: boolean;
@@ -63,6 +71,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
     matchFieldsUsing: ALL_MATCH_ATTRS,
     maxLength: 200,
   },
+  select: { enabled: true, strategy: 'random', match: '' },
   general: {
     triggerEvents: true,
     contextMenu: true,
@@ -96,6 +105,7 @@ export function mergeDefaults(raw: unknown): FillerSettings {
   const s = raw as Partial<FillerSettings>;
   const f = s.fields ?? d.fields;
   const g = s.general ?? d.general;
+  const sel = s.select ?? d.select;
   return {
     password: { ...d.password, ...(s.password ?? {}) },
     fields: {
@@ -106,6 +116,11 @@ export function mergeDefaults(raw: unknown): FillerSettings {
       agreeToTermsFields: strArr(f.agreeToTermsFields, d.fields.agreeToTermsFields),
       matchFieldsUsing: Array.isArray(f.matchFieldsUsing) && f.matchFieldsUsing.length ? (f.matchFieldsUsing as MatchAttribute[]) : d.fields.matchFieldsUsing,
       maxLength: typeof f.maxLength === 'number' && Number.isFinite(f.maxLength) ? f.maxLength : d.fields.maxLength,
+    },
+    select: {
+      enabled: typeof sel.enabled === 'boolean' ? sel.enabled : d.select.enabled,
+      strategy: sel.strategy === 'first' || sel.strategy === 'match' ? sel.strategy : d.select.strategy,
+      match: typeof sel.match === 'string' ? sel.match : d.select.match,
     },
     general: {
       triggerEvents: typeof g.triggerEvents === 'boolean' ? g.triggerEvents : d.general.triggerEvents,

@@ -78,3 +78,20 @@ describe('migration', () => {
     expect(mergeDefaults('not-an-object')).toEqual(DEFAULT_SETTINGS);
   });
 });
+
+describe('select (dropdown) settings', () => {
+  it('defaults to enabled + random', () => {
+    expect(DEFAULT_SETTINGS.select).toEqual({ enabled: true, strategy: 'random', match: '' });
+  });
+  it('merges stored select settings', () => {
+    const s = mergeDefaults({ select: { enabled: false, strategy: 'match', match: 'United States' } });
+    expect(s.select).toEqual({ enabled: false, strategy: 'match', match: 'United States' });
+  });
+  it('clamps an unknown strategy to the default', () => {
+    const bad = mergeDefaults({ select: { enabled: true, strategy: 'bogus', match: 'x' } });
+    expect(bad.select.strategy).toBe('random');
+  });
+  it('adds defaults when select is entirely absent (forward-compatible)', () => {
+    expect(mergeDefaults({}).select).toEqual({ enabled: true, strategy: 'random', match: '' });
+  });
+});

@@ -43,6 +43,12 @@ function csv(s: string): string[] {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
+/** Show the "specific option" text box only when that strategy is chosen. */
+function updateSelectMatchVisibility(): void {
+  const wrap = document.getElementById('s-match-wrap');
+  if (wrap) wrap.hidden = val('s-strategy') !== 'match';
+}
+
 function populateSettings(): void {
   setVal('pw-mode', settings.password.mode);
   ($('pw-length') as HTMLInputElement).valueAsNumber = settings.password.length;
@@ -54,6 +60,10 @@ function populateSettings(): void {
   ($('f-maxlen') as HTMLInputElement).valueAsNumber = settings.fields.maxLength;
   setChecked('f-skiphidden', settings.fields.ignoreHiddenInvisible);
   setChecked('f-skipfilled', settings.fields.ignoreFieldsWithContent);
+  setChecked('s-enabled', settings.select.enabled);
+  setVal('s-strategy', settings.select.strategy);
+  setVal('s-match', settings.select.match);
+  updateSelectMatchVisibility();
   setChecked('g-events', settings.general.triggerEvents);
   setChecked('g-menu', settings.general.contextMenu);
   setChecked('g-ai', settings.general.useOnDeviceAI);
@@ -81,6 +91,11 @@ function collectSettings(): FillerSettings {
       maxLength: ($('f-maxlen') as HTMLInputElement).valueAsNumber || 50,
       ignoreHiddenInvisible: checked('f-skiphidden'),
       ignoreFieldsWithContent: checked('f-skipfilled'),
+    },
+    select: {
+      enabled: checked('s-enabled'),
+      strategy: val('s-strategy') === 'first' ? 'first' : val('s-strategy') === 'match' ? 'match' : 'random',
+      match: val('s-match'),
     },
     general: {
       ...settings.general,
@@ -239,10 +254,12 @@ async function init(): Promise<void> {
 
   for (const id of [
     'pw-mode', 'pw-length', 'pw-fixed', 'pw-log', 'f-ignore', 'f-confirm', 'f-agree', 'f-maxlen',
-    'f-skiphidden', 'f-skipfilled', 'g-events', 'g-menu', 'g-ai', 'g-domains', 'g-emaildomain', 'g-theme-text', 'g-theme-ui',
+    'f-skiphidden', 'f-skipfilled', 's-enabled', 's-strategy', 's-match',
+    'g-events', 'g-menu', 'g-ai', 'g-domains', 'g-emaildomain', 'g-theme-text', 'g-theme-ui',
   ]) {
     document.getElementById(id)?.addEventListener('change', () => void saveSettingsDebounced());
   }
+  document.getElementById('s-strategy')?.addEventListener('change', updateSelectMatchVisibility);
 
   $('save-btn').addEventListener('click', () => void saveSettingsDebounced());
   $('rule-add').addEventListener('click', () => openEditor(null));

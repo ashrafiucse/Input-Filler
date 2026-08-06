@@ -31,6 +31,17 @@
     </section>
 
     <section>
+      <h2>Dropdowns (select fields)</h2>
+      <label class="row"><input id="s-enabled" type="checkbox" checked /> Fill dropdown / select fields</label>
+      <label>Option to select <select id="s-strategy">
+        <option value="random">Random option</option>
+        <option value="first">First option</option>
+        <option value="match">Specific option…</option>
+      </select></label>
+      <label id="s-match-wrap">Specific option (value or text) <input id="s-match" type="text" placeholder="e.g. United States" /></label>
+    </section>
+
+    <section>
       <h2>General</h2>
       <label class="row"><input id="g-events" type="checkbox" /> Trigger input/change events (SPA support)</label>
       <label class="row"><input id="g-menu" type="checkbox" /> Add right-click context menu</label>

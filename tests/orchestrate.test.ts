@@ -434,3 +434,27 @@ describe('media provider filling (named provider wins, else any)', () => {
     expect(/youtube|vimeo|spotify|soundcloud/.test(v)).toBe(true);
   });
 });
+
+describe('dropdown (select) options', () => {
+  it('skips <select> fields when filling is disabled', () => {
+    setDoc(`
+      <form>
+        <input name="name" type="text">
+        <select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro">Pro</option></select>
+      </form>
+    `);
+    const res = fillAllForms(document, ctx({ select: { enabled: false, strategy: 'random', match: '' } }));
+    expect(res.filled).toBe(1); // only the text input
+    expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('');
+  });
+  it('strategy "first" always picks the first valid option', () => {
+    setDoc(`<form><select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro">Pro</option></select></form>`);
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'first', match: '' } }));
+    expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('basic');
+  });
+  it('strategy "match" selects the configured option', () => {
+    setDoc(`<form><select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro">Pro</option></select></form>`);
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'match', match: 'Pro' } }));
+    expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('pro');
+  });
+});

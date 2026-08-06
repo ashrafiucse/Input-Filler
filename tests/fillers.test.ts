@@ -81,6 +81,56 @@ describe('select', () => {
   });
 });
 
+describe('select strategy', () => {
+  function planSelect(): HTMLSelectElement {
+    set(`
+      <select id="s">
+        <option value="">Pick…</option>
+        <option value="us">United States</option>
+        <option value="ca">Canada</option>
+        <option value="mx">Mexico</option>
+      </select>
+    `);
+    return document.getElementById('s') as HTMLSelectElement;
+  }
+  it('random (default) picks a valid option', () => {
+    const el = planSelect();
+    for (let i = 0; i < 20; i++) {
+      fillField(el, 'select', undefined, { selectStrategy: 'random' });
+      expect(['us', 'ca', 'mx']).toContain(el.value);
+      el.value = '';
+    }
+  });
+  it('first always picks the first valid option', () => {
+    const el = planSelect();
+    for (let i = 0; i < 5; i++) {
+      fillField(el, 'select', undefined, { selectStrategy: 'first' });
+      expect(el.value).toBe('us');
+    }
+  });
+  it('match selects by exact value or exact text', () => {
+    const el = planSelect();
+    fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: 'ca' });
+    expect(el.value).toBe('ca');
+    fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: 'Mexico' });
+    expect(el.value).toBe('mx');
+  });
+  it('match is case-insensitive and substring-tolerant', () => {
+    const el = planSelect();
+    fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: 'united states' });
+    expect(el.value).toBe('us');
+    fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: 'can' });
+    expect(el.value).toBe('ca');
+  });
+  it('match falls back to first when nothing matches or the needle is blank', () => {
+    const el = planSelect();
+    fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: 'Brazil' });
+    expect(el.value).toBe('us');
+    fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: '' });
+    expect(el.value).toBe('us');
+  });
+});
+
 describe('constrained types', () => {
   it('range respects a provided value within bounds', () => {
     set('<input id="r" type="range" min="0" max="10" step="2">');

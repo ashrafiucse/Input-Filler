@@ -140,6 +140,8 @@ export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeFiel
   if (desc.dataFake === 'skip' || desc.dataFillType === 'skip') return true;
   const input = el as HTMLInputElement;
   if (desc.type === 'hidden' || input.disabled || input.readOnly) return true;
+  // A disabled dropdown setting skips <select> fields entirely.
+  if (desc.tag === 'select' && !settings.select.enabled) return true;
   if (matchesAny(desc, settings.fields.ignoreFields)) return true;
   if (settings.fields.ignoreHiddenInvisible && !isVisible(el)) return true;
   if (settings.fields.ignoreFieldsWithContent && hasContent(el, desc)) return true;
@@ -299,7 +301,12 @@ function fillOne(
     value = generateValue(type, el, desc, settings, page, rng);
   }
 
-  fillField(el, type, value, { triggerEvents: trigger, rng });
+  fillField(el, type, value, {
+    triggerEvents: trigger,
+    rng,
+    selectStrategy: settings.select.strategy,
+    selectMatch: settings.select.match,
+  });
 
   // Track the last filled value for confirmation fields. Mechanical types have
   // no string value to copy.

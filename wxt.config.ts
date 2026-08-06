@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: 'Input Filler',
     description: 'Fill every form field on the page with realistic, human-readable data.',
-    version: '0.6.1',
+    version: '0.6.2',
     // The content script is a static entrypoint (entrypoints/content.ts) that
     // runs on all pages; no on-demand scripting injection. Popup/options are
     // HTML entrypoints. Storage holds settings + rules; contextMenus adds the
