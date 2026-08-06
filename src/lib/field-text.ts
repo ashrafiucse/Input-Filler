@@ -28,6 +28,14 @@ const BIO: readonly string[] = [
   'Always learning; currently curious about design systems and accessibility.',
   'I care about clear writing as much as clean code.',
   'Calm under deadlines, pragmatic about scope, serious about quality.',
+  'Designer who cares about the small details most people scroll past.',
+  'I build things that feel obvious in hindsight.',
+  'Generalist who enjoys the space between design and engineering.',
+  'I have spent more time in spreadsheets than I care to admit.',
+  'Curious by default, skeptical of unnecessary complexity.',
+  'I measure success by whether people come back the next day.',
+  'Quiet contributor who keeps the work moving.',
+  'I like clear goals, short loops, and teammates who tell me the truth.',
 ];
 
 const FEEDBACK: readonly string[] = [
@@ -39,6 +47,14 @@ const FEEDBACK: readonly string[] = [
   'Honestly delightful once it got going.',
   'Clear, fast, and it never got in my way.',
   'I would suggest a short example right near the start.',
+  'The layout worked well on mobile, less so on a wide monitor.',
+  'I never felt lost, which is rare for a form this long.',
+  'Progress saved automatically, which removed most of my anxiety.',
+  'A few labels could be plainer for first-time users.',
+  'The confirmation step reassured me that nothing went wrong.',
+  'Loading states would make the slower steps feel faster.',
+  'I appreciated being able to review everything before submitting.',
+  'The defaults were sensible enough that I changed almost nothing.',
 ];
 
 const MESSAGE: readonly string[] = [
@@ -49,6 +65,13 @@ const MESSAGE: readonly string[] = [
   'Thanks for the context, that clears it up for me.',
   'Parking this until we have the updated numbers.',
   'Confirming receipt; I will circle back with details shortly.',
+  'Looping in the team so we are all looking at the same thing.',
+  'No rush on this; whenever you have a moment to take a look.',
+  'I will summarize the decisions after the call and share notes.',
+  'Just checking whether anything is blocking us from starting.',
+  'Sounds good; I will proceed with the approach we discussed.',
+  'Let me know if you would like me to adjust the scope.',
+  'Thanks for the quick turn; this unblocks the next step.',
 ];
 
 const DESCRIPTION: readonly string[] = [
@@ -58,6 +81,14 @@ const DESCRIPTION: readonly string[] = [
   'Covers the main workflow plus a handful of useful power moves.',
   'Designed for everyday use, with room to grow as needs change.',
   'Straightforward on the surface, flexible once you dig in.',
+  'A compact tool that handles the routine parts so you do not have to.',
+  'Organized around the tasks people return to most often.',
+  'Sensible defaults with escape hatches for the tricky cases.',
+  'Reliable under normal load and graceful when things get heavy.',
+  'A straightforward path from start to finish, with helpful signposts.',
+  'Built to be understandable the first time you open it.',
+  'Flexible enough for edge cases without cluttering the common path.',
+  'A small set of features that genuinely earn their place.',
 ];
 
 const REASON: readonly string[] = [
@@ -66,6 +97,13 @@ const REASON: readonly string[] = [
   'This keeps behavior consistent across both entry points.',
   'The goal is fewer support tickets and a smoother first run.',
   'It aligns the feature with how people already expect it to work.',
+  'It removes a step that almost everyone found confusing.',
+  'The change keeps the two flows from drifting apart over time.',
+  'It reflects what we learned from watching real usage.',
+  'This should reduce the number of repeat questions we receive.',
+  'It makes the expected outcome obvious without extra instructions.',
+  'The tradeoff favors clarity over a marginal gain in speed.',
+  'It brings the behavior in line with the rest of the product.',
 ];
 
 const EXPERIENCE: readonly string[] = [
@@ -74,6 +112,13 @@ const EXPERIENCE: readonly string[] = [
   'Experience leading small projects from start to finish.',
   'Background spanning frontend, a bit of backend, and plenty of debugging.',
   'Used to wearing a few hats and switching context without dropping the ball.',
+  'Years of shipping features that had to be maintained, not just launched.',
+  'Comfortable with ambiguity and good at narrowing it down quickly.',
+  'I have owned unclear problems and turned them into clear next steps.',
+  'Experience across the stack, deepest on the parts users touch.',
+  'I have paired with designers, support, and leadership to ship together.',
+  'Used to writing the docs and runbooks, not just the code.',
+  'Background making sense of messy legacy systems before improving them.',
 ];
 
 const ADDRESS: readonly string[] = [
@@ -83,6 +128,14 @@ const ADDRESS: readonly string[] = [
   '5309 Cedar Court, Building C',
   '1912 Elm Street, Floor 3',
   '421 Birchwood Hollow',
+  '742 Willow Bend Road',
+  '418 North Bridge Street, Floor 12',
+  '2300 Glendale Mesa Road',
+  '512 Quarry Ridge Lane',
+  '6708 Westport Avenue, Suite 5',
+  '64 Ridgeview Drive',
+  '1200 Market Street, Mailstop 4',
+  '77 Harbor View Court',
 ];
 
 const SUBJECT: readonly string[] = [
@@ -93,6 +146,13 @@ const SUBJECT: readonly string[] = [
   'Onboarding checklist',
   'Q3 roadmap draft',
   'Triage priorities',
+  'Updated timeline for review',
+  'Question about the new process',
+  'Summary of the discussion',
+  'Action items from the planning meeting',
+  'Request for input on the draft',
+  'Heads up about the upcoming deadline',
+  'Recap and next steps',
 ];
 
 // Order matters: more specific intents first; the generic "description" last.

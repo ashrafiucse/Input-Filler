@@ -24,9 +24,22 @@ export const CORPUS: Record<TextTheme, readonly string[]> = {
   lms,
 };
 
-const GRAMMAR_SUBJECTS = ['The team', 'Management', 'The group', 'Leadership', 'The committee', 'Staff', 'The panel'];
-const GRAMMAR_VERBS = ['approved', 'reviewed', 'scheduled', 'finalized', 'discussed', 'confirmed', 'delivered'];
-const GRAMMAR_OBJECTS = ['the plan', 'the proposal', 'the update', 'the report', 'the timeline', 'the agenda'];
+const GRAMMAR_SUBJECTS = [
+  'The team', 'Management', 'The group', 'Leadership', 'The committee',
+  'Staff', 'The panel', 'The working group', 'The department', 'Operations',
+  'The task force', 'The board', 'The review board', 'Finance', 'Engineering',
+  'The product team', 'Customer success', 'The planning group', 'The steering committee', 'Legal',
+];
+const GRAMMAR_VERBS = [
+  'approved', 'reviewed', 'scheduled', 'finalized', 'discussed', 'confirmed', 'delivered',
+  'revised', 'prioritized', 'endorsed', 'deferred', 'documented', 'circulated', 'validated',
+  'accepted', 'adjusted', 'ratified', 'outlined', 'summarized', 'proposed',
+];
+const GRAMMAR_OBJECTS = [
+  'the plan', 'the proposal', 'the update', 'the report', 'the timeline', 'the agenda',
+  'the budget', 'the roadmap', 'the requirements', 'the findings', 'the recommendation',
+  'the scope', 'the milestones', 'the policy', 'the process', 'the deliverables',
+];
 
 function grammarSentence(rng: Rng): string {
   return `${pick(GRAMMAR_SUBJECTS, rng)} ${pick(GRAMMAR_VERBS, rng)} ${pick(GRAMMAR_OBJECTS, rng)}.`;
