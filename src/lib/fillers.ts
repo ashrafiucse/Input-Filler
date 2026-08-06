@@ -6,7 +6,7 @@
 // update their state.
 
 import { pick, type Rng, defaultRng } from './rng';
-import type { LogicalType } from './detect';
+import { isContentEditableEl, type LogicalType } from './detect';
 
 export interface FillOptions {
   triggerEvents?: boolean;
@@ -49,6 +49,94 @@ function setNativeValue(
 
 function setValue(el: HTMLElement, value: string): void {
   setNativeValue(el as HTMLInputElement, value);
+}
+
+/**
+ * Select all content inside a contenteditable so an insertion replaces existing
+ * text rather than appending to it. Best-effort: some editors reclaim the
+ * selection on focus, in which case the execCommand/insertText path below still
+ * targets the editor's own caret position.
+ */
+function selectAllIn(el: HTMLElement): void {
+  const getSel = typeof window !== 'undefined' ? window.getSelection : undefined;
+  const sel = typeof getSel === 'function' ? getSel.call(window) : null;
+  if (!sel) return;
+  const range = el.ownerDocument.createRange();
+  try {
+    range.selectNodeContents(el);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch {
+    // Detached node or a selection implementation that rejects the range.
+  }
+}
+
+function dispatchEditableInput(el: HTMLElement, data: string): void {
+  const init = { bubbles: true, cancelable: true, inputType: 'insertText', data };
+  try {
+    el.dispatchEvent(new InputEvent('beforeinput', init));
+  } catch {
+    // Older engines may reject InputEvent with inputType/data; fall back to a
+    // plain input event so DOM-syncing editors still react.
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+  el.dispatchEvent(new InputEvent('input', init));
+}
+
+function focusEditable(el: HTMLElement): void {
+  try {
+    // preventScroll keeps the page from jumping when filling off-screen editors.
+    el.focus({ preventScroll: true });
+  } catch {
+    el.focus();
+  }
+}
+
+/**
+ * Fill a contenteditable rich-text editor (TipTap/ProseMirror, Quill, Slate,
+ * Trix, Draft.js). These are <div contenteditable>, not real form controls, so
+ * the native value setter does not apply. Focus + select-all, then insert via
+ * document.execCommand('insertText'): although deprecated, it remains the most
+ * reliable way to insert text that model-owning editors recognize — it
+ * synthesizes a 'beforeinput' event whose `data` ProseMirror/TipTap read and
+ * apply to their document model, so the value survives a re-render and a
+ * submit. Firefox lacks execCommand('insertText'); there (and under jsdom) we
+ * mutate the DOM and dispatch input events, which is sufficient for editors
+ * that sync from the DOM on input.
+ */
+function fillContentEditable(el: HTMLElement, value: string, trigger: boolean): void {
+  focusEditable(el);
+  selectAllIn(el);
+  let inserted = false;
+  if (typeof document.execCommand === 'function') {
+    try {
+      inserted = document.execCommand('insertText', false, value);
+    } catch {
+      inserted = false;
+    }
+  }
+  if (inserted) return;
+  el.textContent = value;
+  if (trigger) dispatchEditableInput(el, value);
+}
+
+/** Clear a contenteditable editor, syncing its model the same way as filling. */
+export function clearContentEditable(el: HTMLElement): void {
+  focusEditable(el);
+  selectAllIn(el);
+  let deleted = false;
+  if (typeof document.execCommand === 'function') {
+    try {
+      deleted = document.execCommand('delete');
+    } catch {
+      deleted = false;
+    }
+  }
+  if (!deleted || (el.textContent && el.textContent.length)) {
+    el.textContent = '';
+    dispatchEditableInput(el, '');
+  }
 }
 
 let radioCounter = 0;
@@ -108,6 +196,14 @@ export function fillField(
 ): void {
   const trigger = opts.triggerEvents !== false;
   const rng = opts.rng ?? defaultRng;
+
+  // Rich-text editors are contenteditable <div role="textbox">, not form
+  // controls: the native value setter (used below) throws on them, so handle
+  // them before the type switch.
+  if (isContentEditableEl(el)) {
+    if (value != null && value !== '') fillContentEditable(el, value, trigger);
+    return;
+  }
 
   switch (type) {
     case 'checkbox':

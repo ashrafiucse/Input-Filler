@@ -41,7 +41,7 @@ npm run dev:firefox    # Firefox (web-ext)
 
 1. The toolbar icon opens the popup; **Fill all forms** / **Fill this form** / **Clear** message the background.
 2. The background relays the action to the active tab's content script (keyboard shortcuts and the context menu trigger the same path).
-3. The content script discovers `input`/`textarea`/`select` (including open shadow roots and same-origin iframes), skips hidden/disabled/readonly/ignored fields, then per field: applies a matching Custom Rule or auto-detects the type, generates a readable value, and sets it while dispatching `input`/`change`/`click` so React/Vue/Angular validators fire.
+3. The content script discovers `input`/`textarea`/`select` **and contenteditable rich-text editors** (TipTap/ProseMirror, Quill, Slate, Trix, Draft.js — including open shadow roots and same-origin iframes), skips hidden/disabled/readonly/ignored fields, then per field: applies a matching Custom Rule or auto-detects the type, generates a readable value, and sets it while dispatching `input`/`change`/`click` so React/Vue/Angular validators fire (rich editors are filled via `execCommand`/input events so their internal model stays in sync).
 
 ### Readable data
 

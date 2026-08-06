@@ -152,3 +152,35 @@ describe('robustness', () => {
     expect(el.value).toBe('two');
   });
 });
+
+describe('contenteditable rich-text editors (TipTap/ProseMirror)', () => {
+  it('fills the editor text and fires beforeinput + input', () => {
+    set('<div id="e" contenteditable="true" role="textbox"><p><br></p></div>');
+    const el = document.getElementById('e') as HTMLElement;
+    const events: string[] = [];
+    el.addEventListener('input', () => events.push('input'));
+    el.addEventListener('beforeinput', () => events.push('beforeinput'));
+    fillField(el, 'paragraph', 'A readable paragraph.');
+    expect(el.textContent).toBe('A readable paragraph.');
+    expect(events).toContain('beforeinput');
+    expect(events).toContain('input');
+  });
+  it('replaces existing content instead of appending', () => {
+    set('<div id="e" contenteditable="true">old text</div>');
+    const el = document.getElementById('e') as HTMLElement;
+    fillField(el, 'paragraph', 'new text');
+    expect(el.textContent).toBe('new text');
+  });
+  it('is a no-op when the resolved value is empty', () => {
+    set('<div id="e" contenteditable="true">keep me</div>');
+    const el = document.getElementById('e') as HTMLElement;
+    fillField(el, 'paragraph', '');
+    expect(el.textContent).toBe('keep me');
+  });
+  it('does not use the native value setter (would throw on a div)', () => {
+    set('<div id="e" contenteditable="true"></div>');
+    const el = document.getElementById('e') as HTMLElement;
+    expect(() => fillField(el, 'paragraph', 'safe')).not.toThrow();
+    expect(el.textContent).toBe('safe');
+  });
+});

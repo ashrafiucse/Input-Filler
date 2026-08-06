@@ -6,8 +6,8 @@
 // Page-level consistency: a name and company are generated once per fill pass
 // and reused so an email derives from the name shown in the name field.
 
-import { fillField, isMechanicalType } from './fillers';
-import { describeField, detectType } from './detect';
+import { fillField, clearContentEditable, isMechanicalType } from './fillers';
+import { describeField, detectType, isContentEditableEl } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
 import {
@@ -64,6 +64,16 @@ export function discoverFields(root: ParentNode): HTMLElement[] {
  */
 function collectFields(root: ParentNode, out: HTMLElement[]): void {
   for (const el of root.querySelectorAll<HTMLElement>('input,textarea,select')) out.push(el);
+  // Rich-text editors (TipTap/ProseMirror, Quill, Slate, Trix, Draft.js) render
+  // as <div contenteditable role="textbox">, not real form controls, so the
+  // selector above never finds them. [contenteditable] matches the attribute
+  // (true/""/plaintext-only); the isContentEditableEl check drops explicit
+  // contenteditable="false" regions. Inherited-editable children (an editor's
+  // inner <p>/<br>) lack the attribute and so are never collected — only the
+  // editable root is, which is what we fill.
+  for (const el of root.querySelectorAll<HTMLElement>('[contenteditable]')) {
+    if (isContentEditableEl(el)) out.push(el);
+  }
   for (const el of root.querySelectorAll<HTMLElement>('*')) {
     if (el.shadowRoot) collectFields(el.shadowRoot, out);
   }
@@ -113,6 +123,7 @@ function isVisible(el: HTMLElement): boolean {
 }
 
 function hasContent(el: HTMLElement, desc: ReturnType<typeof describeField>): boolean {
+  if (desc.isContentEditable) return !!(el.textContent && el.textContent.trim());
   if (desc.type === 'checkbox' || desc.type === 'radio') return (el as HTMLInputElement).checked;
   if (desc.tag === 'select') return !!(el as HTMLSelectElement).value;
   return !!(el as HTMLInputElement | HTMLTextAreaElement).value;
@@ -325,6 +336,13 @@ export function fillCurrentForm(doc: Document, activeElement: Element | null, ct
 export function clearAllForms(doc: Document): number {
   let cleared = 0;
   for (const el of discoverFields(doc.body)) {
+    if (isContentEditableEl(el)) {
+      if (el.textContent && el.textContent.trim()) {
+        clearContentEditable(el);
+        cleared++;
+      }
+      continue;
+    }
     const input = el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
     if (input.type === 'hidden' || input.disabled || (input as HTMLInputElement).readOnly) continue;
     if (input.type === 'checkbox' || input.type === 'radio') {

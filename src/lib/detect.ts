@@ -39,6 +39,22 @@ export interface FieldDescriptor {
   autocomplete?: string;
   dataFake?: string;
   dataFillType?: string;
+  isContentEditable?: boolean;
+}
+
+/**
+ * True if `el` is a contenteditable fill target. Real browsers reflect this via
+ * the `isContentEditable` IDL property; we also honor the `contenteditable`
+ * attribute value (""/"true"/"plaintext-only") so the check holds where the IDL
+ * property isn't reflected (e.g. jsdom) and so an explicit `contenteditable="false"`
+ * nested region is excluded. Inherited-editable descendants (a rich editor's
+ * inner <p>/<br>) are never matched here because discovery selects only nodes
+ * that carry the attribute.
+ */
+export function isContentEditableEl(el: Element): boolean {
+  if ((el as HTMLElement).isContentEditable === true) return true;
+  const v = el.getAttribute('contenteditable');
+  return v === '' || v === 'true' || v === 'plaintext-only';
 }
 
 export function describeField(el: Element): FieldDescriptor {
@@ -49,7 +65,9 @@ export function describeField(el: Element): FieldDescriptor {
     type: get('type'),
     name: get('name'),
     id: get('id'),
-    placeholder: get('placeholder'),
+    // Rich-text editors (TipTap/ProseMirror) expose their hint via data-placeholder
+    // rather than the native placeholder attribute.
+    placeholder: get('placeholder') ?? get('data-placeholder'),
     className: get('class'),
     ariaLabel: get('aria-label'),
     ariaLabelledby: get('aria-labelledby'),
@@ -57,6 +75,7 @@ export function describeField(el: Element): FieldDescriptor {
     autocomplete: get('autocomplete'),
     dataFake: get('data-fake'),
     dataFillType: get('data-fill-type'),
+    isContentEditable: isContentEditableEl(el),
   };
 }
 
@@ -160,7 +179,7 @@ function mapType(desc: FieldDescriptor): LogicalType | undefined {
 }
 
 function fallbackType(desc: FieldDescriptor): LogicalType {
-  if (desc.tag === 'textarea') return 'paragraph';
+  if (desc.tag === 'textarea' || desc.isContentEditable) return 'paragraph';
   if (desc.tag === 'select') return 'select';
   const t = mapType(desc);
   if (t) return t;
@@ -219,10 +238,13 @@ export function detectType(
     if (t) return t;
   }
 
-  // 3b. Textareas hold free-form text, so skip the name/id regexes (which target
-  //     single-line fields like username/company/login) and fill readable text.
-  //     An explicit data-fake hint or autocomplete above still wins.
-  if (desc.tag === 'textarea') return 'paragraph';
+  // 3b. Textareas and contenteditable rich-text editors (TipTap/ProseMirror,
+  //     Quill, Slate, Trix) hold free-form text, so skip the name/id regexes
+  //     (which target single-line fields like username/company/login — an
+  //     "email body" editor would otherwise wrongly match the email regex and
+  //     receive an email address). An explicit data-fake hint or autocomplete
+  //     above still wins.
+  if (desc.tag === 'textarea' || desc.isContentEditable) return 'paragraph';
 
   // 4. Regex over the configured match attributes.
   const hay = buildHaystack(desc, matchAttrs);

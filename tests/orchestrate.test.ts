@@ -307,3 +307,52 @@ describe('shadow DOM and same-origin iframes (U11)', () => {
     expect(input.value.length).toBeGreaterThan(0);
   });
 });
+
+describe('contenteditable rich-text editors (TipTap/ProseMirror)', () => {
+  it('discovers and fills the exact TipTap markup from the field report', () => {
+    setDoc(`<form>
+      <div contenteditable="true" translate="no" role="textbox" aria-label="Rich-Text Editor"
+           tabindex="0" data-placeholder="Write something ..."
+           class="tiptap ProseMirror outline-hidden">
+        <p data-placeholder="Write something ..." class="is-empty cursor-text"><br class="ProseMirror-trailingBreak"></p>
+      </div>
+    </form>`);
+    const res = fillAllForms(document, ctx());
+    expect(res.filled).toBe(1);
+    const editor = document.querySelector('[contenteditable]') as HTMLElement;
+    expect(editor.textContent!.length).toBeGreaterThan(0);
+  });
+  it('clears a filled editor back to empty', () => {
+    setDoc(`<div id="e" contenteditable="true" role="textbox"></div>`);
+    fillAllForms(document, ctx());
+    const editor = document.querySelector('[contenteditable]') as HTMLElement;
+    expect(editor.textContent!.length).toBeGreaterThan(0);
+    const cleared = clearAllForms(document);
+    expect(cleared).toBeGreaterThanOrEqual(1);
+    expect((document.querySelector('[contenteditable]') as HTMLElement).textContent).toBe('');
+  });
+  it('honors ignoreFieldsWithContent for a pre-filled editor', () => {
+    setDoc(`<div contenteditable="true">already written</div>`);
+    const s = mergeDefaults(DEFAULT_SETTINGS);
+    s.fields.ignoreFieldsWithContent = true;
+    const res = fillAllForms(document, { settings: s, rules: [], origin: 'https://app.example.com', rng: createRng(7) });
+    expect(res.filled).toBe(0);
+    expect((document.querySelector('[contenteditable]') as HTMLElement).textContent).toBe('already written');
+  });
+  it('does not collect an explicit contenteditable="false" region', () => {
+    setDoc(`<div contenteditable="true" id="ok"></div><div contenteditable="false" id="no"></div>`);
+    fillAllForms(document, ctx());
+    expect((document.getElementById('ok') as HTMLElement).textContent!.length).toBeGreaterThan(0);
+    expect((document.getElementById('no') as HTMLElement).textContent).toBe('');
+  });
+  it('coexists with ordinary fields in the same form', () => {
+    setDoc(`<form>
+      <input name="title" type="text">
+      <div contenteditable="true" role="textbox" aria-label="Body"></div>
+    </form>`);
+    const res = fillAllForms(document, ctx());
+    expect(res.filled).toBe(2);
+    expect((document.querySelector('[name=title]') as HTMLInputElement).value.length).toBeGreaterThan(0);
+    expect((document.querySelector('[contenteditable]') as HTMLElement).textContent!.length).toBeGreaterThan(0);
+  });
+});
