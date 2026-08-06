@@ -1,6 +1,12 @@
-// Field-type detection. Returns one logical type per field using the priority
-// order in R9: explicit data-fake hint -> autocomplete -> input type -> regex
-// over the configured match attributes -> element-type fallback.
+// Field-type detection. Returns one logical type per field. Priority:
+//   data-fake hint -> embed/custom-code -> <select> (always mechanical)
+//   -> autocomplete -> input type -> placeholder SHAPE (email/url/password)
+//   -> free-text short-circuit (textarea/contenteditable)
+//   -> regex over the configured match attributes -> element-type fallback.
+//
+// The regex bank is keyword-driven (label/name/placeholder/aria/class) so the
+// same rules fill an LMS course-title field, a generic "Job title", or any other
+// project's fields — nothing here is hard-coded to a specific app.
 //
 // Works on a plain FieldDescriptor so the resolver is fully unit-testable; the
 // orchestrator builds a descriptor from a live element via describeField().
@@ -101,6 +107,14 @@ function resolveLabel(el: Element): string | undefined {
 }
 
 const REGEX_RULES: ReadonlyArray<readonly [RegExp, LogicalType]> = [
+  // High-specificity content/intent signals (evaluated first; first match wins).
+  [/\bsearch\b/i, 'search'],
+  [/\b(objective|learning[\s_-]?outcome|learning[\s_-]?goal)\b/i, 'objective'],
+  [/\b(course|chapter|lesson|quiz|assignment|session|curriculum|module|cohort|project|class|tutorial|webinar)\s*[\s_-]?(title|name|topic)\b/i, 'title'],
+  [/\b(sub[\s_-]?domain|slug|namespace|handle)\b/i, 'subdomain'],
+  [/\btax\s*[\s_-]?(name|label|title|type)\b/i, 'tax_name'],
+  [/\b(saved[\s_-]?view|view[\s_-]?name)\b/i, 'title'],
+  // Identity / contact.
   [/(full|complete)[\s_-]?name/i, 'full_name'],
   [/(first|given)[\s_-]?name/i, 'first_name'],
   [/(last|family|sur)[\s_-]?name/i, 'last_name'],
@@ -111,10 +125,13 @@ const REGEX_RULES: ReadonlyArray<readonly [RegExp, LogicalType]> = [
   [/(state|province|region)/i, 'state'],
   [/(country|nation)/i, 'country'],
   [/(street|addr(?:ess)?[\s_-]?1|addressline1)/i, 'street'],
-  [/(company|org(?:anization)?|business)/i, 'company'],
+  // Organization / platform / tenant name (broader than just "company").
+  [/(company|org(?:ani[sz]ation)?|business|platform|tenant|academy|institute|school|brand|workspace)/i, 'company'],
   [/(job[\s_-]?title|position|role)/i, 'job_title'],
   [/(user|login|account|nick)/i, 'username'],
   [/(url|website|homepage)/i, 'url'],
+  // Generic title/heading (after job_title so "Job Title" keeps its meaning).
+  [/\b(title|heading)\b/i, 'title'],
 ];
 
 const AUTOCOMPLETE_MAP: Record<string, LogicalType> = {
@@ -173,6 +190,8 @@ function mapType(desc: FieldDescriptor): LogicalType | undefined {
       return 'range';
     case 'password':
       return 'password';
+    case 'search':
+      return 'search';
     default:
       return undefined;
   }
@@ -183,8 +202,41 @@ function fallbackType(desc: FieldDescriptor): LogicalType {
   if (desc.tag === 'select') return 'select';
   const t = mapType(desc);
   if (t) return t;
-  // search and bare text both fall back to a readable sentence.
+  // Bare text falls back to a readable sentence.
   return 'sentence';
+}
+
+/**
+ * Recognize a field's intent from the SHAPE of its placeholder example, which
+ * survives even when the label/name carry no keyword: an email-shaped example
+ * ("name@example.com"), a URL-shaped example ("https://…", "example.com"), or a
+ * password cue ("Password", "Min. 8 characters"). Only meaningful for text-like
+ * inputs; textareas/contenteditable are free-form and short-circuit later.
+ */
+function placeholderSignal(desc: FieldDescriptor): LogicalType | undefined {
+  const p = (desc.placeholder ?? '').trim();
+  if (!p) return undefined;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(p)) return 'email';
+  if (/^https?:\/\//i.test(p) || /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?$/i.test(p)) return 'url';
+  if (/(password|passcode|\bpin\b|min\.?\s*\d+\s*char|at least\s+\d+\s*char)/i.test(p)) return 'password';
+  return undefined;
+}
+
+/**
+ * Detect an embed / custom-code field (a textarea or input whose placeholder is
+ * an HTML/iframe snippet, or that asks for embed/custom HTML). Caught before the
+ * free-text short-circuit so an `<iframe …>` textarea is filled with a valid
+ * embed rather than a paragraph.
+ */
+function isEmbedField(desc: FieldDescriptor): boolean {
+  const hay = [desc.placeholder, desc.label, desc.ariaLabel].filter(Boolean).join(' ');
+  if (!hay) return false;
+  return (
+    /<\s*[a-z!?\/]/i.test(hay)
+    || /\bembed\b/i.test(hay)
+    || /\bcustom\s+(?:html|code|embed)\b/i.test(hay)
+    || /\bhtml\b[\s,]*\b(?:css|javascript|js|script)\b/i.test(hay)
+  );
 }
 
 function buildHaystack(desc: FieldDescriptor, attrs: MatchAttribute[]): string {
@@ -226,32 +278,44 @@ export function detectType(
   const hint = desc.dataFake || desc.dataFillType;
   if (hint && hint.toLowerCase() !== 'skip') return hint;
 
-  // 2. autocomplete.
+  // 2. Embed / custom-code fields (HTML/iframe placeholder) — any tag, before
+  //    the free-text short-circuit so an <iframe> textarea gets a real embed.
+  if (isEmbedField(desc)) return 'embed';
+
+  // 3. <select> is always mechanical: pick a valid <option>. Generating a typed
+  //    string and assigning it usually selects nothing, so a select is never
+  //    classified by its name/label (e.g. a "country" select just picks a real
+  //    country option rather than receiving the literal "Germany").
+  if (desc.tag === 'select') return 'select';
+
+  // 4. autocomplete.
   if (desc.autocomplete) {
     const ac = mapAutocomplete(desc.autocomplete);
     if (ac) return ac;
   }
 
-  // 3. input type (email/tel/url/number/date/color/checkbox/radio/range/password).
+  // 5. input type (email/tel/url/number/date/color/checkbox/radio/range/password/search).
   if (desc.type) {
     const t = mapType(desc);
     if (t) return t;
   }
 
-  // 3b. Textareas and contenteditable rich-text editors (TipTap/ProseMirror,
-  //     Quill, Slate, Trix) hold free-form text, so skip the name/id regexes
-  //     (which target single-line fields like username/company/login — an
-  //     "email body" editor would otherwise wrongly match the email regex and
-  //     receive an email address). An explicit data-fake hint or autocomplete
-  //     above still wins.
+  // 6. Placeholder SHAPE — an email/URL/password example implies that type even
+  //    with no keyword in the label (e.g. placeholder "name@example.com").
+  const ps = placeholderSignal(desc);
+  if (ps) return ps;
+
+  // 7. Textareas and contenteditable rich-text editors hold free-form text, so
+  //    skip the single-line regexes (an "email body" editor would otherwise
+  //    match the email regex and receive an email address).
   if (desc.tag === 'textarea' || desc.isContentEditable) return 'paragraph';
 
-  // 4. Regex over the configured match attributes.
+  // 8. Regex over the configured match attributes.
   const hay = buildHaystack(desc, matchAttrs);
   for (const [re, type] of REGEX_RULES) {
     if (re.test(hay)) return type;
   }
 
-  // 5. Element-type fallback.
+  // 9. Element-type fallback.
   return fallbackType(desc);
 }

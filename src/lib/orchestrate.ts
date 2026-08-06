@@ -29,6 +29,12 @@ import {
   url as genUrl,
   username,
   zip,
+  title as genTitle,
+  searchTerm as genSearchTerm,
+  subdomain as genSubdomain,
+  taxName as genTaxName,
+  objective as genObjective,
+  embedCode as genEmbedCode,
 } from './generators';
 import { type Rng, defaultRng } from './rng';
 import type { TextTheme } from './text';
@@ -188,6 +194,18 @@ function generateValue(
       return jobTitle(rng);
     case 'url':
       return genUrl({ company: page.company, rng });
+    case 'title':
+      return genTitle(rng);
+    case 'search':
+      return genSearchTerm(rng);
+    case 'subdomain':
+      return genSubdomain(rng);
+    case 'tax_name':
+      return genTaxName(rng);
+    case 'objective':
+      return genObjective(rng);
+    case 'embed':
+      return genEmbedCode(rng);
     case 'date':
       return date(rng);
     case 'color':

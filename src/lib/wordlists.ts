@@ -64,3 +64,48 @@ export const COUNTRIES = [
   'United States', 'Canada', 'United Kingdom', 'Australia', 'Germany', 'France',
   'Spain', 'India', 'Brazil', 'Japan',
 ] as const;
+
+// Content-title composition (course / chapter / lesson / quiz / assignment /
+// session / curriculum / project). Composed at fill time so titles stay fresh.
+export const TITLE_TOPICS = [
+  'Web Development', 'Data Structures', 'Public Speaking', 'Digital Marketing',
+  'Graphic Design', 'Machine Learning', 'Project Management', 'UI/UX Design',
+  'Photography', 'Statistics', 'Cloud Computing', 'Business Strategy',
+  'Creative Writing', 'Financial Literacy', 'Conversational Spanish',
+  'Critical Thinking', 'Time Management', 'Cybersecurity Basics',
+] as const;
+
+export const TITLE_TOOLS = [
+  'React', 'Laravel', 'Python', 'Figma', 'Excel', 'Node.js', 'Tailwind CSS',
+  'Docker', 'SQL', 'Notion',
+] as const;
+
+export const TITLE_PREFIXES = [
+  'Introduction to', 'Mastering', 'Foundations of', 'Advanced',
+  'Getting Started with', 'Essentials of', 'Practical', 'The Complete Guide to',
+] as const;
+
+// Realistic single-token search terms for search/filter inputs.
+export const SEARCH_TOKENS = [
+  'completed', 'pending', 'refund', 'invoice', 'active', 'trial', 'canceled',
+  'enrolled', 'overdue', 'draft', 'renewal', 'upgrade',
+] as const;
+
+// Generic tax / sales-tax names.
+export const TAX_NAMES = ['VAT', 'GST', 'Sales Tax', 'HST', 'PST', 'Consumption Tax'] as const;
+
+// Action-oriented learning objectives (for "Objective {n}" / outcome fields).
+export const OBJECTIVES = [
+  'Build a responsive layout from a provided design file.',
+  'Explain the request and response lifecycle of a web application.',
+  'Write unit tests that guard against regressions.',
+  'Refactor a function to improve readability without changing behavior.',
+  'Diagram a relational schema for a small e-commerce domain.',
+  'Deploy a service to a cloud host using a continuous integration pipeline.',
+  'Interpret a dataset using summary statistics and clear visuals.',
+  'Break a large feature into small, independently shippable tasks.',
+  'Apply accessibility practices to reach a broader range of users.',
+  'Debug a failing test by isolating the smallest reproducible case.',
+  'Estimate work using realistic assumptions and stated risks.',
+  'Communicate a technical decision to a non-technical stakeholder.',
+] as const;

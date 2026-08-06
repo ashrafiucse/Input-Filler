@@ -15,6 +15,12 @@ import {
   JOB_TITLES,
   DOMAINS,
   COUNTRIES,
+  TITLE_TOPICS,
+  TITLE_TOOLS,
+  TITLE_PREFIXES,
+  SEARCH_TOKENS,
+  TAX_NAMES,
+  OBJECTIVES,
 } from './wordlists';
 import { dummyText, randomSentence, type TextTheme } from './text';
 
@@ -157,6 +163,50 @@ export function paragraph(n: number, theme: TextTheme = 'general', rng: Rng = de
   return out.join(' ');
 }
 
+/** A realistic content title (course / chapter / lesson / quiz / assignment / session / project). */
+export function title(rng: Rng = defaultRng): string {
+  const r = rng();
+  if (r < 0.4) return `${pick(TITLE_PREFIXES, rng)} ${pick(TITLE_TOPICS, rng)}`;
+  if (r < 0.7) return `${pick(TITLE_TOPICS, rng)} with ${pick(TITLE_TOOLS, rng)}`;
+  if (r < 0.85) return `${pick(TITLE_TOPICS, rng)} Fundamentals`;
+  return `Mastering ${pick(TITLE_TOOLS, rng)}`;
+}
+
+/** A realistic single search term for search/filter inputs. */
+export function searchTerm(rng: Rng = defaultRng): string {
+  const r = rng();
+  if (r < 0.4) return fullName({ rng });
+  if (r < 0.7) return pick(TITLE_TOPICS, rng);
+  return pick(SEARCH_TOKENS, rng);
+}
+
+/** A lowercase hyphenated slug (subdomain / namespace / handle). */
+export function subdomain(rng: Rng = defaultRng): string {
+  const base = rng() < 0.5 ? company(rng) : pick(TITLE_TOPICS, rng);
+  return base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** A generic tax / sales-tax name (VAT, GST, …). */
+export function taxName(rng: Rng = defaultRng): string {
+  return pick(TAX_NAMES, rng);
+}
+
+/** An action-oriented learning objective for outcome fields. */
+export function objective(rng: Rng = defaultRng): string {
+  return pick(OBJECTIVES, rng);
+}
+
+/** A sample embed snippet (reserved example host) for embed/custom-code fields. */
+export function embedCode(rng: Rng = defaultRng): string {
+  const id = Array.from({ length: 11 }, () =>
+    char('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rng),
+  ).join('');
+  return `<iframe width="560" height="315" src="https://www.example.com/embed/${id}" title="Embedded media" frameborder="0" allowfullscreen></iframe>`;
+}
+
 /**
  * Named-generator registry for Custom Field Rules (builtin fill kind + template
  * placeholders). Maps the generator names from the plan's table to functions.
@@ -184,6 +234,12 @@ export const BUILTIN_GENERATORS = new Set<string>([
   'color',
   'password',
   'dummyText',
+  'title',
+  'searchTerm',
+  'subdomain',
+  'taxName',
+  'objective',
+  'embedCode',
 ]);
 
 export function generateByName(name: string, rng: Rng = defaultRng): string {
@@ -230,6 +286,18 @@ export function generateByName(name: string, rng: Rng = defaultRng): string {
       return password({ rng });
     case 'dummyText':
       return dummyText(200, 'general', rng);
+    case 'title':
+      return title(rng);
+    case 'searchTerm':
+      return searchTerm(rng);
+    case 'subdomain':
+      return subdomain(rng);
+    case 'taxName':
+      return taxName(rng);
+    case 'objective':
+      return objective(rng);
+    case 'embedCode':
+      return embedCode(rng);
     default:
       return sentence('general', rng);
   }

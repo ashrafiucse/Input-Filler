@@ -20,6 +20,12 @@ import {
   password,
   sentence,
   paragraph,
+  title,
+  searchTerm,
+  subdomain,
+  taxName,
+  objective,
+  embedCode,
   generateByName,
   BUILTIN_GENERATORS,
 } from '../src/lib/generators';
@@ -152,5 +158,35 @@ describe('builtin generator registry', () => {
   });
   it('unknown names fall back to a sentence, never throw', () => {
     expect(typeof generateByName('nope', createRng(1))).toBe('string');
+  });
+});
+
+describe('content-aware generators', () => {
+  it('title yields a capitalized, non-empty title', () => {
+    const out = title(createRng(3));
+    expect(out.length).toBeGreaterThan(3);
+    expect(out.split(' ').length).toBeGreaterThan(1);
+  });
+  it('searchTerm yields a short single-line term', () => {
+    const out = searchTerm(createRng(4));
+    expect(out.length).toBeGreaterThan(0);
+    expect(out).not.toMatch(/\n/);
+  });
+  it('subdomain yields a lowercase hyphenated slug', () => {
+    const out = subdomain(createRng(5));
+    expect(out).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+  });
+  it('taxName is one of the known tax names', () => {
+    expect(['VAT', 'GST', 'Sales Tax', 'HST', 'PST', 'Consumption Tax']).toContain(taxName(createRng(1)));
+  });
+  it('objective yields a complete sentence', () => {
+    const out = objective(createRng(1));
+    expect(out.endsWith('.')).toBe(true);
+  });
+  it('embedCode yields an <iframe> snippet on the reserved example host', () => {
+    const out = embedCode(createRng(1));
+    expect(out.startsWith('<iframe')).toBe(true);
+    expect(out).toContain('example.com');
+    expect(out.endsWith('</iframe>')).toBe(true);
   });
 });

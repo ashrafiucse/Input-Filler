@@ -47,6 +47,37 @@ npm run dev:firefox    # Firefox (web-ext)
 
 Generators produce fresh data on every fill. A name and company are generated once per fill pass and reused, so an email derives from the name shown in the name field. Generic text fields receive coherent sentences from a themeable real-sentence corpus (business/tech/casual/support/reviews/general), fitted to the field's length limit at sentence boundaries, with a grammatical fallback for very small fields.
 
+### Type-aware detection
+
+Each field is classified so it receives data that fits its purpose, not a generic string. Detection is **keyword- and shape-driven** from the field's label / name / placeholder / aria / class — nothing is hard-coded to a specific app, so the same rules fill an LMS course-title field, a generic "Job title", or any other project's fields. Priority order:
+
+1. explicit `data-fake` / `data-fill-type` hint
+2. **embed / custom-code** (placeholder is an `<iframe>`/HTML snippet, or mentions embed/custom HTML)
+3. **`<select>`** — always picks a valid `<option>` (never a generated string, which usually selects nothing)
+4. `autocomplete` token
+5. input `type` (email/tel/url/number/date/color/checkbox/radio/range/password/**search**)
+6. **placeholder shape** — an email-shaped example (`name@example.com`), a URL-shaped example (`https://…`, `example.com`), or a password cue (`Password`, `Min. 8 characters`) implies that type even with no keyword
+7. free-text short-circuit: `<textarea>` and contenteditable rich editors → readable paragraph
+8. keyword regex → semantic type
+9. element-type fallback
+
+Recognized semantic types and the data they generate:
+
+| Type | Matched by (examples) | Filled with |
+| --- | --- | --- |
+| `title` | course/chapter/lesson/quiz/assignment/session/curriculum/project + title/name/topic; or "Write Title" | a realistic title (e.g. *Introduction to Web Development*) |
+| `search` | "Search…", `type=search` | a realistic search term |
+| `subdomain` | subdomain / slug / namespace / handle | a lowercase hyphenated slug |
+| `tax_name` | tax name / tax label | VAT, GST, Sales Tax, … |
+| `objective` | learning objective / outcome | an action-oriented outcome sentence |
+| `embed` | `<iframe>` / custom HTML/CSS/JS placeholder | a sample `<iframe>` embed snippet |
+| `email` / `url` / `password` | `type=`, autocomplete, **or** placeholder shape | a generated email / URL / strong password |
+| identity / address | first/last/full name, phone, street, city, state, zip, country, company, job title, username | readable structured data |
+| `company` | company / org / **platform / tenant / academy / institute / school / brand / workspace** name | a generated organization name |
+| `paragraph` | `<textarea>`, rich-text editor, descriptions/bios (field-intent matched) | coherent multi-sentence text |
+
+> **Note:** a field whose *only* signal is a generic placeholder (e.g. "Give it a name", "Please specify…") can't be inferred and falls back to a readable sentence. For those, add a `label`, an `aria-label`, or a Custom Field Rule. All semantic types are also available as builtin generators in Custom Rules (`title`, `searchTerm`, `subdomain`, `taxName`, `objective`, `embedCode`, …).
+
 ### Custom Field Rules
 
 On the options page, define rules that match fields (by name/id/label/type/CSS selector, optionally scoped to a site) and override auto-detection with: a builtin generator, static text, a template (`{firstName}.{lastName}@mail.com`, including parameterized `{number(1000,9999)}`), a list, or a regex. Rules evaluate in priority order, first-match-wins. Rule sets can be imported/exported as JSON. Regex generation is guarded against catastrophic backtracking and oversized output; rules persist chunked under the sync-storage quota.

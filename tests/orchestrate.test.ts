@@ -356,3 +356,50 @@ describe('contenteditable rich-text editors (TipTap/ProseMirror)', () => {
     expect((document.querySelector('[contenteditable]') as HTMLElement).textContent!.length).toBeGreaterThan(0);
   });
 });
+
+describe('type-aware filling (placeholder/label → fitting data)', () => {
+  // Mantine <TextInput label="Course title" …/> renders a <label>; resolveLabel
+  // picks it up, so detection is keyword-driven and works on any project.
+  function labelledInput(html: string): void {
+    setDoc(html);
+  }
+  it('fills a course-title field with a title-like value', () => {
+    labelledInput(`<form>
+      <label for="t">Course title</label>
+      <input id="t" name="title" type="text" placeholder="e.g. Introduction to Web Development">
+    </form>`);
+    fillAllForms(document, ctx());
+    const v = (document.getElementById('t') as HTMLInputElement).value;
+    expect(v.length).toBeGreaterThan(0);
+    // Not a generic corpus sentence (no trailing period from our titles).
+    expect(v.endsWith('.')).toBe(false);
+  });
+  it('fills an email-shaped-placeholder field with an email', () => {
+    labelledInput(`<form><input name="x" type="text" placeholder="name@example.com"></form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('input') as HTMLInputElement).value).toMatch(/@/);
+  });
+  it('fills an <iframe> textarea with an embed snippet', () => {
+    labelledInput(`<form><textarea name="embed" placeholder="<iframe width=\"560\"></iframe>"></textarea></form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value.startsWith('<iframe')).toBe(true);
+  });
+  it('fills a search box with a short search term', () => {
+    labelledInput(`<form><input name="q" type="text" placeholder="Search by name or email…"></form>`);
+    fillAllForms(document, ctx());
+    const v = (document.querySelector('input') as HTMLInputElement).value;
+    expect(v.length).toBeGreaterThan(0);
+    expect(v).not.toMatch(/\n/);
+  });
+  it('fills a <select> by picking a valid option (never a generated string)', () => {
+    labelledInput(`<form>
+      <select name="country">
+        <option value="">Select…</option>
+        <option value="de">Germany</option>
+        <option value="fr">France</option>
+      </select>
+    </form>`);
+    fillAllForms(document, ctx());
+    expect((document.querySelector('select') as HTMLSelectElement).value).not.toBe('');
+  });
+});
