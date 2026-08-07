@@ -140,6 +140,22 @@ function hasContent(el: HTMLElement, desc: ReturnType<typeof describeField>): bo
   return !!(el as HTMLInputElement | HTMLTextAreaElement).value;
 }
 
+/**
+ * True if a dropdown (native <select> or ARIA combobox) already has a chosen
+ * value, so the skipIfSelected setting can leave it untouched.
+ *  - <select> and input combobox (Mantine/MUI/Chakra): the committed value/label
+ *    is reflected on the element's own `.value`.
+ *  - Button/div trigger (Radix UI / shadcn Select): there is no `.value`, so use
+ *    Radix's convention — the trigger carries a `data-placeholder` attribute
+ *    while showing the placeholder and removes it once a real option is chosen;
+ *    the attribute's absence means a selection exists.
+ */
+function dropdownHasSelection(el: HTMLElement, desc: ReturnType<typeof describeField>): boolean {
+  if (desc.tag === 'select') return !!(el as HTMLSelectElement).value;
+  if (desc.tag === 'input') return !!(el as HTMLInputElement).value;
+  return !el.hasAttribute('data-placeholder');
+}
+
 export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeField>, settings: FillerSettings): boolean {
   if (desc.dataFake === 'skip' || desc.dataFillType === 'skip') return true;
   const input = el as HTMLInputElement;
@@ -154,6 +170,8 @@ export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeFiel
   if (isSecurityTokenField(desc)) return true;
   // A disabled dropdown setting skips <select> and combobox fields entirely.
   if ((desc.tag === 'select' || isComboboxDesc(desc)) && !settings.select.enabled) return true;
+  // Optionally leave a dropdown that already has a chosen value untouched.
+  if (settings.select.skipIfSelected && (desc.tag === 'select' || isComboboxDesc(desc)) && dropdownHasSelection(el, desc)) return true;
   if (matchesAny(desc, settings.fields.ignoreFields)) return true;
   if (settings.fields.ignoreHiddenInvisible && !isVisible(el)) return true;
   if (settings.fields.ignoreFieldsWithContent && hasContent(el, desc)) return true;

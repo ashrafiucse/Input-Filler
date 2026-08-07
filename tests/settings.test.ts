@@ -81,18 +81,22 @@ describe('migration', () => {
 
 describe('select (dropdown) settings', () => {
   it('defaults to enabled + random', () => {
-    expect(DEFAULT_SETTINGS.select).toEqual({ enabled: true, strategy: 'random', match: '' });
+    expect(DEFAULT_SETTINGS.select).toEqual({ enabled: true, strategy: 'random', match: '', skipIfSelected: false });
   });
   it('merges stored select settings', () => {
     const s = mergeDefaults({ select: { enabled: false, strategy: 'match', match: 'United States' } });
-    expect(s.select).toEqual({ enabled: false, strategy: 'match', match: 'United States' });
+    expect(s.select).toEqual({ enabled: false, strategy: 'match', match: 'United States', skipIfSelected: false });
   });
   it('clamps an unknown strategy to the default', () => {
     const bad = mergeDefaults({ select: { enabled: true, strategy: 'bogus', match: 'x' } });
     expect(bad.select.strategy).toBe('random');
   });
   it('adds defaults when select is entirely absent (forward-compatible)', () => {
-    expect(mergeDefaults({}).select).toEqual({ enabled: true, strategy: 'random', match: '' });
+    expect(mergeDefaults({}).select).toEqual({ enabled: true, strategy: 'random', match: '', skipIfSelected: false });
+  });
+  it('preserves an explicit skipIfSelected and defaults it when absent', () => {
+    expect(mergeDefaults({ select: { enabled: true, strategy: 'first', match: '', skipIfSelected: true } }).select.skipIfSelected).toBe(true);
+    expect(mergeDefaults({ select: { enabled: true, strategy: 'first', match: '' } }).select.skipIfSelected).toBe(false);
   });
 });
 

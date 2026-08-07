@@ -659,6 +659,7 @@ function mountRadixSelect(
   trigger.setAttribute('aria-haspopup', 'listbox');
   trigger.setAttribute('aria-controls', listboxId);
   trigger.setAttribute('aria-expanded', 'false');
+  trigger.setAttribute('data-placeholder', ''); // Radix carries this while empty
   const valueSpan = document.createElement('span');
   valueSpan.textContent = 'Select an option';
   trigger.append(valueSpan);
@@ -679,6 +680,7 @@ function mountRadixSelect(
         trigger.dataset.filledValue = value;
         trigger.dataset.filledLabel = label;
         valueSpan.textContent = label;
+        trigger.removeAttribute('data-placeholder'); // Radix drops it once chosen
       });
       lb.append(o);
     }
@@ -737,5 +739,85 @@ describe('ARIA combobox dropdowns (Radix UI / shadcn Select — button trigger)'
     expect(res.filled).toBe(2);
     expect((document.querySelector('[name=title]') as HTMLInputElement).value.length).toBeGreaterThan(0);
     expect(['Alpha', 'Beta']).toContain(trigger.dataset.filledLabel);
+  });
+});
+
+describe('skipIfSelected — leave already-chosen dropdowns untouched', () => {
+  const on = { select: { enabled: true, strategy: 'first' as const, match: '', skipIfSelected: true } };
+
+  beforeEach(() => {
+    setDoc('');
+    _resetComboboxQueue();
+  });
+
+  it('skips a native <select> that already has a value', () => {
+    setDoc(`<form>
+      <select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro" selected>Pro</option></select>
+    </form>`);
+    const sel = document.querySelector('[name=plan]') as HTMLSelectElement;
+    expect(sel.value).toBe('pro');
+    const res = fillAllForms(document, ctx(on));
+    expect(res.filled).toBe(0);
+    expect(sel.value).toBe('pro'); // untouched (strategy 'first' would otherwise pick 'basic')
+  });
+
+  it('still fills an empty native <select> when skipIfSelected is on', () => {
+    setDoc(`<form><select name="plan"><option value="">Pick</option><option value="basic">Basic</option></select></form>`);
+    const res = fillAllForms(document, ctx(on));
+    expect(res.filled).toBe(1);
+    expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('basic');
+  });
+
+  it('re-fills an already-selected <select> when skipIfSelected is off (default)', () => {
+    setDoc(`<form>
+      <select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro" selected>Pro</option></select>
+    </form>`);
+    const res = fillAllForms(document, ctx({ select: { enabled: true, strategy: 'first', match: '', skipIfSelected: false } }));
+    expect(res.filled).toBe(1);
+    expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('basic');
+  });
+
+  it('skips an input combobox (Mantine) that already has a value', async () => {
+    const input = mountCombobox([['a', 'Alpha'], ['b', 'Beta']], { name: 'type' });
+    input.value = 'Alpha'; // simulate a pre-existing selection
+    const res = fillAllForms(document, ctx(on));
+    await flushComboboxFills();
+    expect(res.filled).toBe(0);
+    expect(input.value).toBe('Alpha'); // untouched
+  });
+
+  it('skips a Radix select that already has a selection (no data-placeholder)', async () => {
+    const trigger = mountRadixSelect([['a', 'Alpha'], ['b', 'Beta']], { name: 'type' });
+    // Simulate Radix's selected state: placeholder removed, a value committed.
+    trigger.removeAttribute('data-placeholder');
+    trigger.dataset.filledValue = 'a';
+    trigger.dataset.filledLabel = 'Alpha';
+    const res = fillAllForms(document, ctx({ select: { enabled: true, strategy: 'random', match: '', skipIfSelected: true } }));
+    await flushComboboxFills();
+    expect(res.filled).toBe(0);
+    expect(trigger.getAttribute('aria-expanded')).toBe('false'); // never opened
+    expect(trigger.dataset.filledValue).toBe('a'); // unchanged
+  });
+
+  it('fills an empty Radix select (data-placeholder present) even with skipIfSelected on', async () => {
+    const trigger = mountRadixSelect([['a', 'Alpha'], ['b', 'Beta']], { name: 'type' });
+    expect(trigger.hasAttribute('data-placeholder')).toBe(true); // models Radix's empty state
+    const res = fillAllForms(document, ctx(on));
+    await flushComboboxFills();
+    expect(res.filled).toBe(1);
+    expect(trigger.dataset.filledValue).toBe('a');
+  });
+
+  it('is dropdown-only — does not skip a text field that already has content', () => {
+    setDoc(`<form>
+      <input name="email" type="email" value="keep@example.com">
+      <select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro" selected>Pro</option></select>
+    </form>`);
+    const res = fillAllForms(document, ctx(on));
+    // Select is skipped (stays 'pro'); the email is re-filled (skipIfSelected
+    // governs dropdowns only — the global ignoreFieldsWithContent stays off).
+    expect(res.filled).toBe(1);
+    expect((document.querySelector('[name=plan]') as HTMLSelectElement).value).toBe('pro');
+    expect((document.querySelector('[name=email]') as HTMLInputElement).value).not.toBe('keep@example.com');
   });
 });

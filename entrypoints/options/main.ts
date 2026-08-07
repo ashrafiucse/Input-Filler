@@ -73,6 +73,7 @@ function populateSettings(): void {
   setChecked('s-enabled', settings.select.enabled);
   setVal('s-strategy', settings.select.strategy);
   setVal('s-match', settings.select.match);
+  setChecked('s-skip-selected', settings.select.skipIfSelected === true);
   updateSelectVisibility();
   setChecked('g-events', settings.general.triggerEvents);
   setChecked('g-menu', settings.general.contextMenu);
@@ -111,6 +112,7 @@ function collectSettings(): FillerSettings {
       enabled: checked('s-enabled'),
       strategy: val('s-strategy') === 'first' ? 'first' : val('s-strategy') === 'match' ? 'match' : 'random',
       match: val('s-match'),
+      skipIfSelected: checked('s-skip-selected'),
     },
     general: {
       ...settings.general,
@@ -269,7 +271,7 @@ async function init(): Promise<void> {
 
   for (const id of [
     'pw-mode', 'pw-length', 'pw-fixed', 'pw-log', 'c-number', 'c-exp', 'c-cvc', 'f-ignore', 'f-confirm', 'f-agree', 'f-maxlen',
-    'f-skiphidden', 'f-skipfilled', 's-enabled', 's-strategy', 's-match',
+    'f-skiphidden', 'f-skipfilled', 's-enabled', 's-strategy', 's-match', 's-skip-selected',
     'g-events', 'g-menu', 'g-ai', 'g-domains', 'g-emaildomain', 'g-theme-text', 'g-theme-ui',
   ]) {
     document.getElementById(id)?.addEventListener('change', () => void saveSettingsDebounced());

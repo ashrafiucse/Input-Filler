@@ -41,6 +41,8 @@ export interface FillerSettings {
     strategy: 'random' | 'first' | 'match';
     /** For strategy 'match': pick the option whose value or visible text matches this. */
     match: string;
+    /** When true, a dropdown that already has a chosen value is left untouched. */
+    skipIfSelected?: boolean;
   };
   general: {
     triggerEvents: boolean;
@@ -80,7 +82,7 @@ export const DEFAULT_SETTINGS: FillerSettings = {
     matchFieldsUsing: ALL_MATCH_ATTRS,
     maxLength: 200,
   },
-  select: { enabled: true, strategy: 'random', match: '' },
+  select: { enabled: true, strategy: 'random', match: '', skipIfSelected: false },
   general: {
     triggerEvents: true,
     contextMenu: true,
@@ -136,6 +138,7 @@ export function mergeDefaults(raw: unknown): FillerSettings {
       enabled: typeof sel.enabled === 'boolean' ? sel.enabled : d.select.enabled,
       strategy: sel.strategy === 'first' || sel.strategy === 'match' ? sel.strategy : d.select.strategy,
       match: typeof sel.match === 'string' ? sel.match : d.select.match,
+      skipIfSelected: typeof sel.skipIfSelected === 'boolean' ? sel.skipIfSelected : d.select.skipIfSelected,
     },
     general: {
       triggerEvents: typeof g.triggerEvents === 'boolean' ? g.triggerEvents : d.general.triggerEvents,
