@@ -50,8 +50,8 @@ describe('generators shape', () => {
   it('email matches an email pattern', () => {
     for (let i = 0; i < 50; i++) expect(email()).toMatch(EMAIL_RE);
   });
-  it('email defaults to @gmail.com', () => {
-    for (let i = 0; i < 20; i++) expect(email()).toMatch(/@gmail\.com$/);
+  it('email defaults to @example.com', () => {
+    for (let i = 0; i < 20; i++) expect(email()).toMatch(/@example\.com$/);
   });
   it('email uses a provided domain', () => {
     expect(email({ first: 'Eleanor', last: 'Whitfield', domain: 'example.org' })).toMatch(/@example\.org$/);

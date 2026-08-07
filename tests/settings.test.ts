@@ -70,7 +70,7 @@ describe('migration', () => {
     const upgraded = migrate(mergeDefaults(oldish));
     expect(upgraded.settingsVersion).toBe(1);
     expect(upgraded.general.theme).toBe('dark');
-    expect(upgraded.general.textTheme).toBe('business'); // added default
+    expect(upgraded.general.textTheme).toBe('lms'); // added default
     expect(upgraded.fields.ignoreFields).toEqual(['captcha', 'hipinputtext']);
   });
   it('malformed stored data falls back to defaults without throwing', () => {

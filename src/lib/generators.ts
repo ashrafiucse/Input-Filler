@@ -61,7 +61,7 @@ export function email(opts: NameOpts = {}): string {
   const first = slug(opts.first ?? firstName(rng));
   const last = slug(opts.last ?? lastName(rng));
   const n = int(1, 999, 1, rng);
-  const domain = opts.domain ?? 'gmail.com';
+  const domain = opts.domain ?? 'example.com';
   return `${first}.${last}${n}@${domain}`;
 }
 

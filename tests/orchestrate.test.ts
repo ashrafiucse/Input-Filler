@@ -221,11 +221,11 @@ describe('password and email domain', () => {
     const v = (document.querySelector('[name=password]') as HTMLInputElement).value;
     expect(v.length).toBeGreaterThanOrEqual(8);
   });
-  it('email fields use @gmail.com by default', () => {
+  it('email fields use @example.com by default', () => {
     setDoc(`<form><input name="email" type="email"></form>`);
     fillAllForms(document, ctx());
     const v = (document.querySelector('[name=email]') as HTMLInputElement).value;
-    expect(v.endsWith('@gmail.com')).toBe(true);
+    expect(v.endsWith('@example.com')).toBe(true);
   });
   it('honors a custom email domain from settings', () => {
     setDoc(`<form><input name="email" type="email"></form>`);
