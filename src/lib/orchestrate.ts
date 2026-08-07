@@ -70,7 +70,11 @@ export function discoverFields(root: ParentNode): HTMLElement[] {
  * iframe documents so forms built with web components or frames are filled too.
  */
 function collectFields(root: ParentNode, out: HTMLElement[]): void {
-  for (const el of root.querySelectorAll<HTMLElement>('input,textarea,select')) out.push(el);
+  // Collect real form controls plus ARIA combobox triggers that are NOT inputs
+  // (Radix UI / shadcn Select renders the trigger as <button role="combobox">).
+  // querySelectorAll dedupes across a comma selector, so an <input role="combobox">
+  // (Mantine/MUI/Chakra) is still collected exactly once.
+  for (const el of root.querySelectorAll<HTMLElement>('input,textarea,select,[role="combobox"]')) out.push(el);
   // Rich-text editors (TipTap/ProseMirror, Quill, Slate, Trix, Draft.js) render
   // as <div contenteditable role="textbox">, not real form controls, so the
   // selector above never finds them. [contenteditable] matches the attribute

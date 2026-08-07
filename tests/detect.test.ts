@@ -264,4 +264,18 @@ describe('ARIA combobox dropdowns (Mantine/MUI/Chakra Select)', () => {
     // aria-haspopup of menu/grid/tree is a different widget, not a listbox select.
     expect(isComboboxDesc(input({ ariaHaspopup: 'menu' }))).toBe(false);
   });
+  it('is flagged on a <button>/<div> trigger (Radix UI / shadcn Select)', () => {
+    // Radix Select renders the trigger as <button role="combobox">, not an input;
+    // detection must not gate on tag=input.
+    expect(isComboboxDesc({ tag: 'button', role: 'combobox' } as FieldDescriptor)).toBe(true);
+    expect(detectType({ tag: 'button', role: 'combobox' } as FieldDescriptor)).toBe('combobox');
+    expect(detectType({ tag: 'button', ariaHaspopup: 'listbox' } as FieldDescriptor)).toBe('combobox');
+    expect(detectType({ tag: 'div', role: 'combobox' } as FieldDescriptor)).toBe('combobox');
+  });
+  it('a plain button (no listbox signals) is not misclassified as a combobox', () => {
+    expect(detectType({ tag: 'button', type: 'submit' } as FieldDescriptor)).not.toBe('combobox');
+  });
+  it('a contenteditable with role=combobox stays paragraph (rich-text guard)', () => {
+    expect(detectType({ tag: 'div', role: 'combobox', isContentEditable: true } as FieldDescriptor)).toBe('paragraph');
+  });
 });

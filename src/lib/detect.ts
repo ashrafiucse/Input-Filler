@@ -419,13 +419,16 @@ export function detectType(
   //    country option rather than receiving the literal "Germany").
   if (desc.tag === 'select') return 'select';
 
-  // 3a. ARIA listbox combobox (Mantine/MUI/Chakra/Ant Select): a readonly text
-  //     input whose options live in a portal <div role="listbox">. Mechanical,
-  //     like <select>: pick a real option, never a typed string (which a
-  //     readonly controlled input would ignore anyway). Caught before media /
+  // 3a. ARIA listbox combobox (Mantine/MUI/Chakra/Ant Select, and Radix UI /
+  //     shadcn Select whose trigger is a <button>): a custom dropdown whose
+  //     options live in a portal <div role="listbox">. Mechanical, like <select>:
+  //     pick a real option, never a typed string (which a readonly controlled
+  //     input — or a button trigger — would ignore anyway). Detected from
+  //     role=combobox / aria-haspopup=listbox / readonly+aria-controls on any
+  //     tag except a contenteditable rich-text editor. Caught before media /
   //     autocomplete / keyword detection so a "country" combobox picks a real
   //     country option rather than receiving the literal string "Germany".
-  if (desc.tag === 'input' && isComboboxDesc(desc)) return 'combobox';
+  if (!desc.isContentEditable && isComboboxDesc(desc)) return 'combobox';
 
   // 3b. Media provider (YouTube/Vimeo/Spotify/SoundCloud) mentioned in a link/
   //     URL field — beats input type=url so a "Paste YouTube URL" input gets a

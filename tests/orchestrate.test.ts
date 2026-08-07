@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fillAllForms, fillCurrentForm, clearAllForms } from '../src/lib/orchestrate';
+import { fillAllForms, fillCurrentForm, clearAllForms, discoverFields } from '../src/lib/orchestrate';
 import { flushComboboxFills, _resetComboboxQueue } from '../src/lib/fillers';
 import { DEFAULT_SETTINGS, mergeDefaults, type FillerSettings } from '../src/lib/settings';
 import { createRng } from '../src/lib/rng';
@@ -637,5 +637,105 @@ describe('ARIA combobox dropdowns (Mantine Select)', () => {
     await flushComboboxFills();
     expect(a.value).toBe('A-one');
     expect(b.value).toBe('B-one');
+  });
+});
+
+/**
+ * Mount a Radix UI Select (shadcn) trigger: <button role=combobox
+ * aria-haspopup=listbox aria-controls=…>. Closed => no listbox in the DOM;
+ * opening on pointerdown portals a <div role=listbox>; an option commits on
+ * pointerup (Radix items have no click handler). Records the committed value
+ * on the trigger's dataset so orchestration tests can assert it.
+ */
+function mountRadixSelect(
+  opts: Array<[value: string, label: string]>,
+  cfg: { listboxId?: string; name?: string; disabled?: string[] } = {},
+): HTMLButtonElement {
+  const listboxId = cfg.listboxId ?? 'radix-listbox';
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  if (cfg.name) trigger.name = cfg.name;
+  trigger.setAttribute('role', 'combobox');
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-controls', listboxId);
+  trigger.setAttribute('aria-expanded', 'false');
+  const valueSpan = document.createElement('span');
+  valueSpan.textContent = 'Select an option';
+  trigger.append(valueSpan);
+  const disabled = new Set(cfg.disabled ?? []);
+  trigger.addEventListener('pointerdown', () => {
+    trigger.setAttribute('aria-expanded', 'true');
+    const lb = document.createElement('div');
+    lb.id = listboxId;
+    lb.setAttribute('role', 'listbox');
+    for (const [value, label] of opts) {
+      const o = document.createElement('div');
+      o.setAttribute('role', 'option');
+      o.setAttribute('data-value', value);
+      if (disabled.has(value)) o.setAttribute('aria-disabled', 'true');
+      o.textContent = label;
+      o.addEventListener('pointermove', () => o.setAttribute('data-highlighted', ''));
+      o.addEventListener('pointerup', () => {
+        trigger.dataset.filledValue = value;
+        trigger.dataset.filledLabel = label;
+        valueSpan.textContent = label;
+      });
+      lb.append(o);
+    }
+    document.body.append(lb);
+  });
+  document.body.append(trigger);
+  return trigger;
+}
+
+describe('ARIA combobox dropdowns (Radix UI / shadcn Select — button trigger)', () => {
+  beforeEach(() => {
+    setDoc('');
+    _resetComboboxQueue();
+  });
+
+  it('discovers a <button role=combobox> (not just inputs)', () => {
+    const trigger = mountRadixSelect([['a', 'Apple'], ['b', 'Banana']]);
+    expect(discoverFields(document.body)).toContain(trigger);
+  });
+
+  it('fills a Radix Select end-to-end by opening it and committing an option', async () => {
+    const trigger = mountRadixSelect([['short', 'Short Answer'], ['long', 'Paragraph']], { name: 'type' });
+    const res = fillAllForms(document, ctx());
+    await flushComboboxFills();
+    expect(res.filled).toBe(1);
+    expect(['Short Answer', 'Paragraph']).toContain(trigger.dataset.filledLabel);
+  });
+
+  it('is skipped when the dropdown setting is disabled', async () => {
+    const trigger = mountRadixSelect([['a', 'A'], ['b', 'B']], { name: 'type' });
+    fillAllForms(document, ctx({ select: { enabled: false, strategy: 'random', match: '' } }));
+    await flushComboboxFills();
+    expect(trigger.dataset.filledValue).toBeUndefined();
+  });
+
+  it('honors strategy "first"', async () => {
+    const trigger = mountRadixSelect([['basic', 'Basic'], ['pro', 'Pro']], { name: 'plan' });
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'first', match: '' } }));
+    await flushComboboxFills();
+    expect(trigger.dataset.filledValue).toBe('basic');
+  });
+
+  it('honors strategy "match" against a visible option label', async () => {
+    const trigger = mountRadixSelect([['us', 'United States'], ['mx', 'Mexico']], { name: 'country' });
+    fillAllForms(document, ctx({ select: { enabled: true, strategy: 'match', match: 'Mexico' } }));
+    await flushComboboxFills();
+    expect(trigger.dataset.filledValue).toBe('mx');
+  });
+
+  it('coexists with ordinary fields in the same form', async () => {
+    setDoc(`<form><input name="title" type="text"></form>`);
+    const trigger = mountRadixSelect([['a', 'Alpha'], ['b', 'Beta']], { name: 'type' });
+    document.querySelector('form')!.append(trigger);
+    const res = fillAllForms(document, ctx());
+    await flushComboboxFills();
+    expect(res.filled).toBe(2);
+    expect((document.querySelector('[name=title]') as HTMLInputElement).value.length).toBeGreaterThan(0);
+    expect(['Alpha', 'Beta']).toContain(trigger.dataset.filledLabel);
   });
 });
