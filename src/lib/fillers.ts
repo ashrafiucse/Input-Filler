@@ -273,10 +273,15 @@ function fireEvent(
   const isPointer = type.startsWith('pointer');
   try {
     const Ctor = isPointer && Win?.PointerEvent ? Win.PointerEvent : Win?.MouseEvent ?? MouseEvent;
-    // button:0 mirrors a left-button mouse tap; pointerType:'mouse' satisfies
-    // framework guards (Radix/MUI) that admit only a real mouse pointer.
+    // button:0 mirrors a left-button mouse tap; pointerType:'mouse' + isPrimary
+    // satisfy framework guards (Radix/MUI) that admit only a real primary mouse
+    // pointer. jsdom has no PointerEvent ctor, so tests dispatch these as
+    // MouseEvents — pointerType/isPrimary only matter in a real browser.
     const init: PointerEventInit = { bubbles: true, cancelable: true, button: 0 };
-    if (isPointer) init.pointerType = 'mouse';
+    if (isPointer) {
+      init.pointerType = 'mouse';
+      init.isPrimary = true;
+    }
     el.dispatchEvent(new Ctor(type, init));
   } catch {
     // jsdom/old engines: ignore.

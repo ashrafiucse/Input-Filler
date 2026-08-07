@@ -401,7 +401,7 @@ describe('ARIA combobox (Mantine Select)', () => {
  */
 function buildRadixSelect(
   opts: Array<[value: string, label: string]>,
-  cfg: { listboxId?: string; disabledValues?: string[]; disabledLabels?: string[] } = {},
+  cfg: { listboxId?: string; disabledValues?: string[] } = {},
 ): HTMLButtonElement {
   const listboxId = cfg.listboxId ?? 'radix-listbox';
   const trigger = document.createElement('button');
@@ -418,7 +418,7 @@ function buildRadixSelect(
   const store = { value: '', label: '' };
   (trigger as unknown as { _store: typeof store })._store = store;
 
-  const disabled = new Set([...(cfg.disabledValues ?? []), ...(cfg.disabledLabels ?? [])]);
+  const disabled = new Set(cfg.disabledValues ?? []);
 
   // Radix: open on pointerdown -> portal the listbox.
   trigger.addEventListener('pointerdown', () => {
@@ -534,5 +534,24 @@ describe('ARIA combobox (Radix UI / shadcn Select — button trigger)', () => {
     await flushComboboxFills();
     const store = (trigger as unknown as { _store: { value: string } })._store;
     expect(store.value).toBe('');
+  });
+
+  it('resolves a listbox id that contains a colon (Radix radix-:r1: ids)', async () => {
+    // Radix generates ids like "radix-:r1:"; getElementById (not a CSS
+    // selector) must still find the portal listbox.
+    const trigger = buildRadixSelect([['a', 'Apple'], ['b', 'Banana']], { listboxId: 'radix-:r1:' });
+    fillCombobox(trigger, { strategy: 'first' });
+    await flushComboboxFills();
+    expect((trigger as unknown as { _store: { value: string } })._store.value).toBe('a');
+  });
+
+  it('fills two Radix selects on the same form (serialized, no race)', async () => {
+    const a = buildRadixSelect([['a1', 'A-one'], ['a2', 'A-two']], { listboxId: 'lb-a' });
+    const b = buildRadixSelect([['b1', 'B-one'], ['b2', 'B-two']], { listboxId: 'lb-b' });
+    fillCombobox(a, { strategy: 'first' });
+    fillCombobox(b, { strategy: 'first' });
+    await flushComboboxFills();
+    expect((a as unknown as { _store: { value: string } })._store.value).toBe('a1');
+    expect((b as unknown as { _store: { value: string } })._store.value).toBe('b1');
   });
 });
