@@ -262,14 +262,22 @@ export function _resetComboboxQueue(): void {
   comboboxChain = Promise.resolve();
 }
 
-function fireEvent(el: Element, type: 'pointerdown' | 'mousedown' | 'mouseup'): void {
+function fireEvent(
+  el: Element,
+  type: 'pointermove' | 'pointerdown' | 'pointerup' | 'mousedown' | 'mouseup',
+): void {
   // Realm-correct constructors from the element's own window, so the event
   // bubbles through the framework's delegated root listener. PointerEvent is
-  // absent in jsdom; guard so tests (which react to plain click) still pass.
+  // absent in some engines; guard so tests (which react to plain click) still pass.
   const Win = el.ownerDocument.defaultView as (typeof window) | null;
+  const isPointer = type.startsWith('pointer');
   try {
-    const Ctor = type === 'pointerdown' && Win?.PointerEvent ? Win.PointerEvent : Win?.MouseEvent ?? MouseEvent;
-    el.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true }));
+    const Ctor = isPointer && Win?.PointerEvent ? Win.PointerEvent : Win?.MouseEvent ?? MouseEvent;
+    // button:0 mirrors a left-button mouse tap; pointerType:'mouse' satisfies
+    // framework guards (Radix/MUI) that admit only a real mouse pointer.
+    const init: PointerEventInit = { bubbles: true, cancelable: true, button: 0 };
+    if (isPointer) init.pointerType = 'mouse';
+    el.dispatchEvent(new Ctor(type, init));
   } catch {
     // jsdom/old engines: ignore.
   }
@@ -370,10 +378,17 @@ function waitForOptions(el: HTMLElement, timeoutMs: number): Promise<HTMLElement
 function selectCombobox(el: HTMLElement, strategy: SelectStrategy, match: string, rng: Rng): void {
   const target = chooseComboboxOption(el, strategy, match, rng);
   if (!target) return;
-  // Same realistic tap as open: some libs commit the selection on pointerdown/
-  // mousedown, others on click.
+  // A realistic single left-button tap. pointermove highlights the item
+  // (Radix marks its active item on pointermove), and the selection is
+  // committed on pointerup by Radix UI Select while Mantine/MUI/Chakra commit
+  // on click — firing the full pointer+mouse lifecycle (down/up then the
+  // mouse-compat events and click) commits the option under any model without
+  // library-specific branching.
+  fireEvent(target, 'pointermove');
   fireEvent(target, 'pointerdown');
+  fireEvent(target, 'pointerup');
   fireEvent(target, 'mousedown');
+  fireEvent(target, 'mouseup');
   target.click();
 }
 

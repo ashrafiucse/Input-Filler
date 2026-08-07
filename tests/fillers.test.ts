@@ -390,3 +390,149 @@ describe('ARIA combobox (Mantine Select)', () => {
     expect(input.value).toBe('');
   });
 });
+
+/**
+ * Build a Radix UI Select (shadcn) trigger: a <button role=combobox
+ * aria-haspopup=listbox aria-controls=…>. Closed => no listbox in the DOM.
+ * Opening on `pointerdown` portals a <div role=listbox> of <div role=option
+ * data-value=…> to the body (Radix renders the content asynchronously on
+ * open). The option highlights on `pointermove` and COMMITS on `pointerup` —
+ * Radix items have no click handler, which is the crux of the original failure.
+ */
+function buildRadixSelect(
+  opts: Array<[value: string, label: string]>,
+  cfg: { listboxId?: string; disabledValues?: string[]; disabledLabels?: string[] } = {},
+): HTMLButtonElement {
+  const listboxId = cfg.listboxId ?? 'radix-listbox';
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.setAttribute('role', 'combobox');
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-controls', listboxId);
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.setAttribute('data-state', 'closed');
+  const valueSpan = document.createElement('span');
+  valueSpan.textContent = 'Select an option';
+  trigger.append(valueSpan);
+
+  const store = { value: '', label: '' };
+  (trigger as unknown as { _store: typeof store })._store = store;
+
+  const disabled = new Set([...(cfg.disabledValues ?? []), ...(cfg.disabledLabels ?? [])]);
+
+  // Radix: open on pointerdown -> portal the listbox.
+  trigger.addEventListener('pointerdown', () => {
+    trigger.setAttribute('aria-expanded', 'true');
+    trigger.setAttribute('data-state', 'open');
+    const lb = document.createElement('div');
+    lb.id = listboxId;
+    lb.setAttribute('role', 'listbox');
+    for (const [value, label] of opts) {
+      const o = document.createElement('div');
+      o.setAttribute('role', 'option');
+      o.setAttribute('data-value', value);
+      o.setAttribute('data-radix-collection-item', '');
+      if (disabled.has(value) || disabled.has(label)) o.setAttribute('aria-disabled', 'true');
+      o.textContent = label;
+      o.addEventListener('pointermove', () => o.setAttribute('data-highlighted', ''));
+      // Radix: commit on pointerup, NOT click.
+      o.addEventListener('pointerup', () => {
+        store.value = value;
+        store.label = label;
+        valueSpan.textContent = label;
+        trigger.setAttribute('data-state', 'closed');
+        trigger.setAttribute('aria-expanded', 'false');
+        lb.remove();
+      });
+      lb.append(o);
+    }
+    document.body.append(lb);
+  });
+  document.body.append(trigger);
+  return trigger;
+}
+
+describe('ARIA combobox (Radix UI / shadcn Select — button trigger)', () => {
+  beforeEach(() => {
+    _resetComboboxQueue();
+    document.body.innerHTML = '';
+  });
+
+  it('opens the dropdown and commits an option (random)', async () => {
+    const trigger = buildRadixSelect([
+      ['short', 'Short Answer'],
+      ['long', 'Paragraph'],
+      ['mcq', 'Multiple Choice'],
+    ]);
+    fillCombobox(trigger, { rng: createRng(1) });
+    await flushComboboxFills();
+    const store = (trigger as unknown as { _store: { value: string; label: string } })._store;
+    expect(store.value.length).toBeGreaterThan(0);
+    expect(['Short Answer', 'Paragraph', 'Multiple Choice']).toContain(store.label);
+  });
+
+  it('strategy "first" always picks the first option', async () => {
+    const trigger = buildRadixSelect([
+      ['basic', 'Basic'],
+      ['pro', 'Pro'],
+      ['ent', 'Enterprise'],
+    ]);
+    for (let i = 0; i < 5; i++) {
+      fillCombobox(trigger, { strategy: 'first', rng: createRng(i) });
+      await flushComboboxFills();
+      const store = (trigger as unknown as { _store: { value: string; label: string } })._store;
+      expect(store.value).toBe('basic');
+      expect(store.label).toBe('Basic');
+    }
+  });
+
+  it('strategy "match" selects by exact value or text (then substring)', async () => {
+    const trigger = buildRadixSelect([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+      ['mx', 'Mexico'],
+    ]);
+    fillCombobox(trigger, { strategy: 'match', match: 'ca' });
+    await flushComboboxFills();
+    expect((trigger as unknown as { _store: { label: string } })._store.label).toBe('Canada');
+
+    fillCombobox(trigger, { strategy: 'match', match: 'Mexico' });
+    await flushComboboxFills();
+    expect((trigger as unknown as { _store: { label: string } })._store.label).toBe('Mexico');
+  });
+
+  it('match falls back to the first option when nothing matches', async () => {
+    const trigger = buildRadixSelect([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+    ]);
+    fillCombobox(trigger, { strategy: 'match', match: 'Brazil' });
+    await flushComboboxFills();
+    expect((trigger as unknown as { _store: { value: string } })._store.value).toBe('us');
+  });
+
+  it('does not select a disabled option', async () => {
+    const trigger = buildRadixSelect(
+      [
+        ['one', 'One'],
+        ['two', 'Two'],
+        ['three', 'Three'],
+      ],
+      { disabledValues: ['two'] },
+    );
+    for (let i = 0; i < 30; i++) {
+      fillCombobox(trigger, { rng: createRng(i) });
+      await flushComboboxFills();
+      const store = (trigger as unknown as { _store: { value: string } })._store;
+      expect(store.value).not.toBe('two');
+    }
+  });
+
+  it('is a no-op (never throws) when no options ever render', async () => {
+    const trigger = buildRadixSelect([]);
+    fillCombobox(trigger, { rng: createRng(0), openTimeoutMs: 10 });
+    await flushComboboxFills();
+    const store = (trigger as unknown as { _store: { value: string } })._store;
+    expect(store.value).toBe('');
+  });
+});
