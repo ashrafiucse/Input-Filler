@@ -5,7 +5,7 @@
 // Orchestration lives in src/lib/orchestrate.ts (unit-tested).
 
 import { fillAllForms, fillCurrentForm, clearAllForms } from '@/src/lib/orchestrate';
-import { flushComboboxFills } from '@/src/lib/fillers';
+import { flushComboboxFills, flushDeferredSelects } from '@/src/lib/fillers';
 import { isOnDeviceAIAvailable, enhanceTextFieldsWithAI } from '@/src/lib/on-device-ai';
 import { loadSettings, getDefaultStorageAdapter } from '@/src/lib/settings';
 import { loadRules } from '@/src/lib/rules';
@@ -42,6 +42,7 @@ export default defineContentScript({
             // settle them before reporting the fill done (and before the optional
             // AI pass, which only refines free-text fields and never touches them).
             await flushComboboxFills();
+            await flushDeferredSelects();
             if (settings.general.useOnDeviceAI && isOnDeviceAIAvailable()) {
               await enhanceTextFieldsWithAI(document, settings);
             }
@@ -50,6 +51,7 @@ export default defineContentScript({
           case 'fillForm': {
             const result = fillCurrentForm(document, lastFocused ?? document.activeElement, { settings, rules, origin });
             await flushComboboxFills();
+            await flushDeferredSelects();
             return result;
           }
           case 'clear':

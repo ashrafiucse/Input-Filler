@@ -203,6 +203,16 @@ function chooseFrom<T extends { value: string; text: string }>(
   return pick(valid, rng);
 }
 
+/** Valid (non-disabled, non-empty-value) options of a <select>. */
+function validOptions(el: HTMLSelectElement): HTMLOptionElement[] {
+  return Array.from(el.options).filter((o) => !o.disabled && o.value !== '');
+}
+
+/** True if a <select> has at least one valid option to choose. */
+export function selectHasValidOptions(el: HTMLSelectElement): boolean {
+  return validOptions(el).length > 0;
+}
+
 /**
  * Choose a <select> option per the configured strategy:
  *  - 'first':  always the first valid (non-disabled, non-empty) option;
@@ -217,7 +227,7 @@ function chooseOption(
   match: string,
   rng: Rng,
 ): HTMLOptionElement | null {
-  const valid = Array.from(el.options).filter((o) => !o.disabled && o.value !== '');
+  const valid = validOptions(el);
   return chooseFrom(valid as unknown as { value: string; text: string }[], strategy, match, rng) as HTMLOptionElement | null;
 }
 
@@ -226,6 +236,89 @@ function fillSelect(el: HTMLSelectElement, trigger: boolean, rng: Rng, strategy:
   if (!target) return;
   setNativeValue(el, target.value);
   if (trigger) dispatch(el, ['input', 'change']);
+}
+
+// ---------------------------------------------------------------------------
+// Dependent / cascading <select> (e.g. State populates async after Country is
+// chosen). The synchronous fill pass reaches such a select while it still
+// holds only its empty placeholder option, so chooseOption() finds nothing and
+// the field would otherwise be left empty. fillSelectDeferred() observes the
+// select's option list and fills it once a real option lands (or times out),
+// mirroring the combobox fire-and-forget settle so the dependent value is set
+// before the user submits. Callers await completion via flushDeferredSelects().
+// ---------------------------------------------------------------------------
+
+const DEFERRED_SELECT_TIMEOUT_MS = 2000;
+
+/** Serialized queue of deferred select fills. */
+let deferredSelectChain: Promise<void> = Promise.resolve();
+
+/** Await all deferred select fills enqueued so far (for callers/tests). */
+export function flushDeferredSelects(): Promise<void> {
+  return deferredSelectChain;
+}
+
+/** Test hook: detach pending fills so a failing test cannot leak into the next. */
+export function _resetDeferredSelectQueue(): void {
+  deferredSelectChain = Promise.resolve();
+}
+
+/**
+ * Resolve once the select has at least one valid option — immediately if it
+ * already does, else when its option list mutates (the parent field's async
+ * change populating it) or after `timeoutMs`. Used to wait out async option
+ * population on dependent/cascading dropdowns.
+ */
+function waitForValidOptions(el: HTMLSelectElement, timeoutMs: number): Promise<void> {
+  if (validOptions(el).length) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      clearTimeout(timer);
+      resolve();
+    };
+    // Realm-correct constructor so the observer's callback runs in the select's
+    // own window (matters for same-origin iframe documents).
+    const Win = el.ownerDocument.defaultView;
+    const observer = new (Win?.MutationObserver ?? MutationObserver)(finish);
+    observer.observe(el, { childList: true, subtree: true });
+    const timer = setTimeout(finish, timeoutMs);
+  });
+}
+
+export interface DeferredSelectOptions {
+  strategy?: SelectStrategy;
+  match?: string;
+  rng?: Rng;
+  /** Max ms to wait for the select's options to populate before giving up. */
+  openTimeoutMs?: number;
+}
+
+/**
+ * Fill a <select> that was empty at fill time, retrying once its options
+ * populate. Fire-and-forget: enqueues onto the deferred chain and returns
+ * synchronously, like fillCombobox(). A select that never receives options
+ * simply times out (the field stays on its placeholder) without breaking the
+ * chain.
+ */
+export function fillSelectDeferred(
+  el: HTMLSelectElement,
+  opts: DeferredSelectOptions = {},
+): void {
+  const strategy = opts.strategy ?? 'random';
+  const match = opts.match ?? '';
+  const rng = opts.rng ?? defaultRng;
+  const timeout = opts.openTimeoutMs ?? DEFERRED_SELECT_TIMEOUT_MS;
+  const run = async (): Promise<void> => {
+    await waitForValidOptions(el, timeout);
+    fillSelect(el, true, rng, strategy, match);
+  };
+  deferredSelectChain = deferredSelectChain.then(run).catch(() => {
+    // A select that never receives options must not break the chain.
+  });
 }
 
 // ---------------------------------------------------------------------------

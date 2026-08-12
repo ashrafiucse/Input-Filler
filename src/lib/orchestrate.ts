@@ -6,7 +6,7 @@
 // Page-level consistency: a name and company are generated once per fill pass
 // and reused so an email derives from the name shown in the name field.
 
-import { fillField, fillCombobox, clearContentEditable, isMechanicalType } from './fillers';
+import { fillField, fillCombobox, fillSelectDeferred, selectHasValidOptions, clearContentEditable, isMechanicalType } from './fillers';
 import { describeField, detectType, isContentEditableEl, isComboboxDesc, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
@@ -348,6 +348,20 @@ function fillOne(
     } else {
       fillCombobox(el, { strategy: settings.select.strategy, match: settings.select.match, rng });
     }
+    return { filled: true };
+  }
+
+  // Dependent / cascading <select> (e.g. State loads after Country): reached
+  // while it still holds only its empty placeholder option. Defer until its
+  // options arrive — the parent field's change event was already dispatched
+  // earlier in this pass, so a MutationObserver on this select will catch the
+  // async option population. Mirrors the combobox fire-and-forget settle.
+  if (type === 'select' && !selectHasValidOptions(el as HTMLSelectElement)) {
+    fillSelectDeferred(el as HTMLSelectElement, {
+      strategy: settings.select.strategy,
+      match: settings.select.match,
+      rng,
+    });
     return { filled: true };
   }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { fillAllForms, fillCurrentForm, clearAllForms, discoverFields } from '../src/lib/orchestrate';
-import { flushComboboxFills, _resetComboboxQueue } from '../src/lib/fillers';
+import { flushComboboxFills, flushDeferredSelects, _resetComboboxQueue, _resetDeferredSelectQueue } from '../src/lib/fillers';
 import { DEFAULT_SETTINGS, mergeDefaults, type FillerSettings } from '../src/lib/settings';
 import { createRng } from '../src/lib/rng';
 
@@ -17,6 +17,8 @@ function setDoc(html: string): void {
 
 beforeEach(() => {
   setDoc('');
+  _resetComboboxQueue();
+  _resetDeferredSelectQueue();
 });
 
 describe('fillAllForms — mixed form', () => {
@@ -201,6 +203,49 @@ describe('fresh data each fill', () => {
     const t2 = (document.querySelector('[name=bio]') as HTMLTextAreaElement).value;
     expect(q2).not.toBe(q1);
     expect(t2).not.toBe(t1);
+  });
+});
+
+describe('dependent / cascading selects (Country → State)', () => {
+  it('fills a state select whose options arrive async after the country change', async () => {
+    setDoc(`
+      <form>
+        <select name="country"><option value="">Pick country</option><option value="us">United States</option></select>
+        <select name="state"><option value="">Select a state</option></select>
+      </form>
+    `);
+    const country = document.querySelector('[name=country]') as HTMLSelectElement;
+    const state = document.querySelector('[name=state]') as HTMLSelectElement;
+    // Simulate the app populating state options async after country changes
+    // (the exact pattern from the field report: only the placeholder exists
+    // at fill time).
+    country.addEventListener('change', () => {
+      setTimeout(() => {
+        state.insertAdjacentHTML(
+          'beforeend',
+          '<option value="ca">California</option><option value="tx">Texas</option>',
+        );
+      }, 5);
+    });
+
+    fillAllForms(document, ctx());
+    // Country fills synchronously; state is deferred (still empty in-pass).
+    expect(country.value).toBe('us');
+    expect(state.value).toBe('');
+    await flushDeferredSelects();
+    expect(['ca', 'tx']).toContain(state.value);
+  });
+
+  it('a select with options present is filled synchronously, not deferred', () => {
+    setDoc(`
+      <form>
+        <select name="plan"><option value="">Pick</option><option value="basic">Basic</option><option value="pro">Pro</option></select>
+      </form>
+    `);
+    fillAllForms(document, ctx());
+    expect(['basic', 'pro']).toContain(
+      (document.querySelector('[name=plan]') as HTMLSelectElement).value,
+    );
   });
 });
 

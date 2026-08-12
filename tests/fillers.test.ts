@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fillField, fillCombobox, flushComboboxFills, _resetComboboxQueue, _resetRadioCounter } from '../src/lib/fillers';
+import { fillField, fillCombobox, flushComboboxFills, _resetComboboxQueue, _resetRadioCounter, fillSelectDeferred, flushDeferredSelects, _resetDeferredSelectQueue } from '../src/lib/fillers';
 import { createRng } from '../src/lib/rng';
 
 function set(html: string): Document {
@@ -128,6 +128,74 @@ describe('select strategy', () => {
     expect(el.value).toBe('us');
     fillField(el, 'select', undefined, { selectStrategy: 'match', selectMatch: '' });
     expect(el.value).toBe('us');
+  });
+});
+
+describe('dependent / cascading <select> (deferred fill)', () => {
+  beforeEach(() => {
+    _resetDeferredSelectQueue();
+    document.body.innerHTML = '';
+  });
+
+  it('fills once options populate after a delay (parent change → async options)', async () => {
+    set('<select id="state"><option value="">Select a state</option></select>');
+    const el = document.getElementById('state') as HTMLSelectElement;
+    // Simulate a parent field's async change populating real options shortly
+    // after the fill pass — exactly the Country → State cascade.
+    setTimeout(() => {
+      el.insertAdjacentHTML('beforeend', '<option value="ca">California</option><option value="tx">Texas</option>');
+    }, 10);
+    fillSelectDeferred(el, { strategy: 'first', rng: createRng(0) });
+    // Not filled synchronously: options aren't there yet.
+    expect(el.value).toBe('');
+    await flushDeferredSelects();
+    expect(el.value).toBe('ca');
+  });
+
+  it('fills immediately when options are already present (no real wait)', async () => {
+    set('<select id="s"><option value="">Pick</option><option value="a">A</option><option value="b">B</option></select>');
+    const el = document.getElementById('s') as HTMLSelectElement;
+    fillSelectDeferred(el, { strategy: 'first', rng: createRng(0) });
+    await flushDeferredSelects();
+    expect(el.value).toBe('a');
+  });
+
+  it('honors a match strategy against late-arriving options', async () => {
+    set('<select id="s"><option value="">Pick</option></select>');
+    const el = document.getElementById('s') as HTMLSelectElement;
+    setTimeout(() => {
+      el.insertAdjacentHTML('beforeend', '<option value="us">United States</option><option value="ca">Canada</option>');
+    }, 10);
+    fillSelectDeferred(el, { strategy: 'match', match: 'canada', rng: createRng(0) });
+    await flushDeferredSelects();
+    expect(el.value).toBe('ca');
+  });
+
+  it('times out gracefully (no throw, no selection) when options never arrive', async () => {
+    set('<select id="s"><option value="">Pick</option></select>');
+    const el = document.getElementById('s') as HTMLSelectElement;
+    fillSelectDeferred(el, { strategy: 'first', rng: createRng(0), openTimeoutMs: 5 });
+    await flushDeferredSelects();
+    expect(el.value).toBe('');
+  });
+
+  it('a failed deferred fill does not break the chain for later ones', async () => {
+    set(`
+      <select id="empty"><option value="">Pick</option></select>
+      <select id="fed"><option value="">Pick</option></select>
+    `);
+    const empty = document.getElementById('empty') as HTMLSelectElement;
+    const fed = document.getElementById('fed') as HTMLSelectElement;
+    setTimeout(() => {
+      fed.insertAdjacentHTML('beforeend', '<option value="a">A</option>');
+    }, 10);
+    // The first select times out (no options ever arrive); the second must
+    // still fill, proving the earlier failure did not reject the chain.
+    fillSelectDeferred(empty, { strategy: 'first', rng: createRng(0), openTimeoutMs: 5 });
+    fillSelectDeferred(fed, { strategy: 'first', rng: createRng(0) });
+    await flushDeferredSelects();
+    expect(empty.value).toBe('');
+    expect(fed.value).toBe('a');
   });
 });
 
