@@ -3,6 +3,21 @@
 All notable changes to **Input Filler** are listed here. Versions follow the packaged
 release zips in `.output/`.
 
+## [0.6.6] — 2026-08-12
+
+### Added
+- **Preline UI searchable selects (HSSelect) now fill.** A native
+  `<select data-hs-select>` whose UI is an overlay (a toggle `<button>` + a
+  `[data-hs-select-dropdown]` of `[data-value]` options) was previously not
+  touched: the toggle has no `role="combobox"`, and the options carry no
+  `role="option"`. Such selects are now detected and driven through the
+  overlay — the toggle is opened and a real `[data-value]` option is clicked —
+  so the visible toggle updates and Preline's own commit fires the `change`
+  event. That change event is what cascades to dependent fields, so selecting a
+  Preline **Country** now makes the dependent **State** list populate (which the
+  0.6.5 cascading-select fix then fills). Falls back to setting the native
+  select's value when the overlay can't be reached.
+
 ## [0.6.5] — 2026-08-12
 
 ### Fixed
