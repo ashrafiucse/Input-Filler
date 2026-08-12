@@ -6,8 +6,8 @@
 // Page-level consistency: a name and company are generated once per fill pass
 // and reused so an email derives from the name shown in the name field.
 
-import { fillField, fillCombobox, fillSelectDeferred, selectHasValidOptions, clearContentEditable, isMechanicalType } from './fillers';
-import { describeField, detectType, isContentEditableEl, isComboboxDesc, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
+import { fillField, fillCombobox, fillPrelineSelect, fillSelectDeferred, selectHasValidOptions, clearContentEditable, isMechanicalType } from './fillers';
+import { describeField, detectType, isContentEditableEl, isComboboxDesc, isPrelineSelectDesc, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
 import {
@@ -173,7 +173,7 @@ export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeFiel
   // Optionally leave a dropdown that already has a chosen value untouched.
   if (settings.select.skipIfSelected && (desc.tag === 'select' || isComboboxDesc(desc)) && dropdownHasSelection(el, desc)) return true;
   if (matchesAny(desc, settings.fields.ignoreFields)) return true;
-  if (settings.fields.ignoreHiddenInvisible && !isVisible(el)) return true;
+  if (settings.fields.ignoreHiddenInvisible && !isVisible(el) && !isPrelineSelectDesc(desc)) return true;
   if (settings.fields.ignoreFieldsWithContent && hasContent(el, desc)) return true;
   return false;
 }
@@ -351,6 +351,20 @@ function fillOne(
     return { filled: true };
   }
 
+  // Preline UI HSSelect (<select data-hs-select>): drive the overlay (toggle +
+  // [data-value] options) instead of the hidden native select, so the visible
+  // toggle updates and Preline's own commit fires the change event that
+  // cascades to dependent fields (e.g. State populates after Country). Settles
+  // on the shared combobox chain before the user submits.
+  if (type === 'preline') {
+    fillPrelineSelect(el as HTMLSelectElement, {
+      strategy: settings.select.strategy,
+      match: settings.select.match,
+      rng,
+    });
+    return { filled: true };
+  }
+
   // Dependent / cascading <select> (e.g. State loads after Country): reached
   // while it still holds only its empty placeholder option. Defer until its
   // options arrive — the parent field's change event was already dispatched
@@ -441,6 +455,9 @@ export function clearAllForms(doc: Document): number {
     if (input.type === 'hidden' || input.disabled || (input as HTMLInputElement).readOnly) continue;
     // Same token protection as the fill path (see shouldSkip).
     if (isSecurityTokenField(describeField(el))) continue;
+    // Preline selects are cleared via their overlay; setting the hidden native
+    // value here would desync the toggle, so leave them to the fill path.
+    if (isPrelineSelectDesc(describeField(el))) continue;
     if (input.type === 'checkbox' || input.type === 'radio') {
       if ((input as HTMLInputElement).checked) {
         (input as HTMLInputElement).checked = false;

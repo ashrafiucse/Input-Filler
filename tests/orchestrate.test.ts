@@ -249,6 +249,69 @@ describe('dependent / cascading selects (Country → State)', () => {
   });
 });
 
+describe('Preline country → dependent state cascade', () => {
+  it('fills a Preline country, whose change then enables the state select', async () => {
+    // Preline country widget (hidden native select + toggle + dropdown).
+    const wrapper = document.createElement('div');
+    wrapper.className = 'hs-select relative';
+    const country = document.createElement('select');
+    country.name = 'country';
+    country.setAttribute('data-hs-select', '{}');
+    country.className = 'hidden';
+    country.style.display = 'none';
+    country.innerHTML = '<option value=""><option value="us">United States<option value="ca">Canada';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    const ttitle = document.createElement('span');
+    ttitle.setAttribute('data-title', '');
+    ttitle.textContent = 'Choose';
+    toggle.append(ttitle);
+    const dropdown = document.createElement('div');
+    dropdown.setAttribute('data-hs-select-dropdown', '');
+    dropdown.setAttribute('role', 'listbox');
+    dropdown.className = 'hidden';
+    for (const [v, l] of [['us', 'United States'], ['ca', 'Canada']] as const) {
+      const o = document.createElement('div');
+      o.setAttribute('data-value', v);
+      o.setAttribute('data-title-value', l);
+      o.textContent = l;
+      dropdown.append(o);
+    }
+    wrapper.append(country, toggle, dropdown);
+    // Dependent native state select — empty until a country is chosen.
+    const state = document.createElement('select');
+    state.name = 'state';
+    state.innerHTML = '<option value="">Select a state</option>';
+    const form = document.createElement('form');
+    form.append(wrapper, state);
+    document.body.append(form);
+
+    // Preline: open on toggle click; commit on option click.
+    toggle.addEventListener('click', () => dropdown.classList.remove('hidden'));
+    for (const o of Array.from(dropdown.querySelectorAll<HTMLElement>('[data-value]'))) {
+      o.addEventListener('click', () => {
+        country.value = o.getAttribute('data-value') ?? '';
+        ttitle.textContent = o.getAttribute('data-title-value');
+        country.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+    // App populates state options async after the country changes.
+    country.addEventListener('change', () => {
+      setTimeout(() => {
+        state.insertAdjacentHTML('beforeend', '<option value="ny">New York<option value="on">Ontario');
+      }, 5);
+    });
+
+    fillAllForms(document, ctx());
+    // Country fills via the async Preline path; state is deferred (empty in-pass).
+    expect(country.value).toBe('');
+    await flushComboboxFills(); // country commits → change → state options arrive
+    expect(['us', 'ca']).toContain(country.value);
+    await flushDeferredSelects(); // state now has options → fills
+    expect(['ny', 'on']).toContain(state.value);
+  });
+});
+
 describe('generic text fields get readable sentences', () => {
   it('a bare text input receives a full readable corpus sentence', () => {
     setDoc(`<form><input name="query" type="text"></form>`);

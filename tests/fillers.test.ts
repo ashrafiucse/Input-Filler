@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fillField, fillCombobox, flushComboboxFills, _resetComboboxQueue, _resetRadioCounter, fillSelectDeferred, flushDeferredSelects, _resetDeferredSelectQueue } from '../src/lib/fillers';
+import { fillField, fillCombobox, fillPrelineSelect, flushComboboxFills, _resetComboboxQueue, _resetRadioCounter, fillSelectDeferred, flushDeferredSelects, _resetDeferredSelectQueue } from '../src/lib/fillers';
 import { createRng } from '../src/lib/rng';
 
 function set(html: string): Document {
@@ -621,5 +621,167 @@ describe('ARIA combobox (Radix UI / shadcn Select — button trigger)', () => {
     await flushComboboxFills();
     expect((a as unknown as { _store: { value: string } })._store.value).toBe('a1');
     expect((b as unknown as { _store: { value: string } })._store.value).toBe('b1');
+  });
+});
+
+/**
+ * Build a Preline UI HSSelect from the field report: a hidden native
+ * <select data-hs-select> + a toggle <button> + a [data-hs-select-dropdown]
+ * of [data-value] options, all inside a .hs-select wrapper. Clicking the
+ * toggle reveals the dropdown (removes `hidden`); clicking an option commits
+ * (sets the native value, updates the toggle label, hides the dropdown, fires
+ * change) — mirroring Preline's real behavior.
+ */
+function buildPrelineSelect(
+  opts: Array<[value: string, label: string]>,
+  cfg: { name?: string } = {},
+): HTMLSelectElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'hs-select relative';
+
+  const sel = document.createElement('select');
+  sel.name = cfg.name ?? 'country';
+  sel.id = cfg.name ?? 'country';
+  sel.setAttribute('data-hs-select', '{}');
+  sel.className = 'hidden';
+  sel.style.display = 'none';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Choose';
+  sel.append(placeholder);
+  for (const [v, label] of opts) {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = label;
+    sel.append(o);
+  }
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.className = 'hs-select-toggle';
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'text-gray-800 truncate';
+  titleSpan.setAttribute('data-title', '');
+  titleSpan.textContent = 'Choose an option';
+  toggle.append(titleSpan);
+
+  const dropdown = document.createElement('div');
+  dropdown.setAttribute('data-hs-select-dropdown', '');
+  dropdown.setAttribute('role', 'listbox');
+  dropdown.className = 'hidden';
+  for (const [v, label] of opts) {
+    const o = document.createElement('div');
+    o.setAttribute('data-value', v);
+    o.setAttribute('data-title-value', label);
+    o.setAttribute('tabindex', '0');
+    o.className = 'cursor-pointer';
+    o.textContent = label;
+    dropdown.append(o);
+  }
+  const chevron = document.createElement('div');
+  chevron.innerHTML = '<svg></svg>';
+
+  wrapper.append(sel, toggle, dropdown, chevron);
+  document.body.append(wrapper);
+
+  // Preline: open the dropdown on toggle click.
+  toggle.addEventListener('click', () => {
+    dropdown.classList.remove('hidden');
+    toggle.setAttribute('aria-expanded', 'true');
+  });
+  // Preline: clicking an option commits it.
+  for (const o of Array.from(dropdown.querySelectorAll<HTMLElement>('[data-value]'))) {
+    o.addEventListener('click', () => {
+      sel.value = o.getAttribute('data-value') ?? '';
+      titleSpan.textContent = o.getAttribute('data-title-value');
+      dropdown.classList.add('hidden');
+      toggle.setAttribute('aria-expanded', 'false');
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+  return sel;
+}
+
+describe('Preline UI HSSelect', () => {
+  beforeEach(() => {
+    _resetComboboxQueue();
+    document.body.innerHTML = '';
+  });
+
+  it('opens the toggle and commits a valid option (random)', async () => {
+    const sel = buildPrelineSelect([
+      ['AFG', 'Afghanistan'],
+      ['ALA', 'Aland Islands'],
+      ['ALB', 'Albania'],
+    ]);
+    fillPrelineSelect(sel, { rng: createRng(1) });
+    await flushComboboxFills();
+    expect(['AFG', 'ALA', 'ALB']).toContain(sel.value);
+  });
+
+  it('strategy "first" always picks the first option', async () => {
+    const sel = buildPrelineSelect([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+      ['mx', 'Mexico'],
+    ]);
+    for (let i = 0; i < 5; i++) {
+      sel.value = '';
+      fillPrelineSelect(sel, { strategy: 'first', rng: createRng(i) });
+      await flushComboboxFills();
+      expect(sel.value).toBe('us');
+    }
+  });
+
+  it('match selects by data-title-value (label) or data-value', async () => {
+    const sel = buildPrelineSelect([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+      ['mx', 'Mexico'],
+    ]);
+    fillPrelineSelect(sel, { strategy: 'match', match: 'canada' });
+    await flushComboboxFills();
+    expect(sel.value).toBe('ca');
+
+    sel.value = '';
+    fillPrelineSelect(sel, { strategy: 'match', match: 'mx' });
+    await flushComboboxFills();
+    expect(sel.value).toBe('mx');
+  });
+
+  it('match falls back to the first option when nothing matches', async () => {
+    const sel = buildPrelineSelect([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+    ]);
+    fillPrelineSelect(sel, { strategy: 'match', match: 'Brazil' });
+    await flushComboboxFills();
+    expect(sel.value).toBe('us');
+  });
+
+  it('updates the visible toggle label to the chosen option', async () => {
+    const sel = buildPrelineSelect([
+      ['us', 'United States'],
+      ['ca', 'Canada'],
+    ]);
+    const toggle = sel.parentElement!.querySelector('button')!;
+    fillPrelineSelect(sel, { strategy: 'match', match: 'Canada' });
+    await flushComboboxFills();
+    expect(toggle.querySelector('[data-title]')!.textContent).toBe('Canada');
+  });
+
+  it('falls back to setting the native value when the overlay is absent', async () => {
+    // No .hs-select wrapper / dropdown: fillPrelineSelect should still set the
+    // native select value so submit + dependent cascades work.
+    document.body.innerHTML = '';
+    const sel = document.createElement('select');
+    sel.name = 'country';
+    sel.setAttribute('data-hs-select', '{}');
+    sel.innerHTML = '<option value=""><option value="us">US<option value="ca">CA';
+    document.body.append(sel);
+    fillPrelineSelect(sel, { strategy: 'first', rng: createRng(0) });
+    await flushComboboxFills();
+    expect(sel.value).toBe('us');
   });
 });

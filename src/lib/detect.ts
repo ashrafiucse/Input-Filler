@@ -55,6 +55,8 @@ export interface FieldDescriptor {
   ariaHaspopup?: string;
   ariaControls?: string;
   readOnly?: boolean;
+  // Preline UI HSSelect: the data-hs-select init attribute on a <select>.
+  dataHsSelect?: string;
 }
 
 /**
@@ -111,6 +113,8 @@ export function describeField(el: Element): FieldDescriptor {
     role: get('role'),
     ariaHaspopup: get('aria-haspopup'),
     ariaControls: get('aria-controls'),
+    // Preline UI HSSelect: the data-hs-select init attribute on a <select>.
+    dataHsSelect: get('data-hs-select'),
     readOnly: !!(el as HTMLInputElement).readOnly,
   };
 }
@@ -131,6 +135,11 @@ export function isComboboxDesc(desc: FieldDescriptor): boolean {
   // aria-haspopup token but wire the listbox via aria-controls.)
   if (desc.readOnly && desc.ariaControls) return true;
   return false;
+}
+
+/** True if `desc` is a Preline UI HSSelect (a native <select data-hs-select>). */
+export function isPrelineSelectDesc(desc: FieldDescriptor): boolean {
+  return desc.tag === 'select' && desc.dataHsSelect != null;
 }
 
 /** Resolve associated label text: <label for>, wrapping <label>, or aria-labelledby. */
@@ -412,6 +421,15 @@ export function detectType(
   //    the free-text short-circuit so an <iframe> textarea gets a real embed.
   //    Which provider's embed is chosen at fill time from the field's context.
   if (isEmbedField(desc)) return 'embed';
+
+  // 2b. Preline UI HSSelect: a native <select data-hs-select> whose UI is an
+  //     overlay (a toggle <button> + a [data-hs-select-dropdown] of
+  //     [data-value] options). The native select is hidden and Preline owns its
+  //     value, so it must be driven via the overlay (open toggle + click option)
+  //     — setting the hidden select's value would neither update the visible
+  //     toggle nor fire Preline's commit. Caught before the generic <select>
+  //     branch so it routes to the Preline fill path.
+  if (isPrelineSelectDesc(desc)) return 'preline';
 
   // 3. <select> is always mechanical: pick a valid <option>. Generating a typed
   //    string and assigning it usually selects nothing, so a select is never

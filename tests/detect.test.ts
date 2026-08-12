@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, type FieldDescriptor } from '../src/lib/detect';
+import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, isPrelineSelectDesc, type FieldDescriptor } from '../src/lib/detect';
 
 function input(attrs: Partial<FieldDescriptor> = {}): FieldDescriptor {
   return { tag: 'input', type: 'text', ...attrs };
@@ -60,6 +60,21 @@ describe('element fallback', () => {
     // would usually select nothing, so it is never classified by keyword.
     expect(detectType({ tag: 'select', name: 'country' })).toBe('select');
     expect(detectType({ tag: 'select', name: 'misc' })).toBe('select');
+  });
+});
+
+describe('Preline UI HSSelect', () => {
+  it('a <select data-hs-select> is detected as preline, not a plain select', () => {
+    expect(detectType({ tag: 'select', name: 'country', dataHsSelect: '{}' })).toBe('preline');
+    expect(detectType({ tag: 'select', name: 'misc', dataHsSelect: '{}' })).toBe('preline');
+  });
+  it('a select without data-hs-select is still a plain select', () => {
+    expect(detectType({ tag: 'select', name: 'country' })).toBe('select');
+  });
+  it('isPrelineSelectDesc flags only Preline-backed selects', () => {
+    expect(isPrelineSelectDesc({ tag: 'select', dataHsSelect: '{}' })).toBe(true);
+    expect(isPrelineSelectDesc({ tag: 'select' })).toBe(false);
+    expect(isPrelineSelectDesc({ tag: 'input', dataHsSelect: '{}' })).toBe(false);
   });
 });
 

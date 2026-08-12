@@ -19,7 +19,7 @@ export interface FillOptions {
   selectMatch?: string;
 }
 
-const MECHANICAL = new Set<LogicalType>(['checkbox', 'radio', 'select', 'combobox']);
+const MECHANICAL = new Set<LogicalType>(['checkbox', 'radio', 'select', 'combobox', 'preline']);
 
 export function isMechanicalType(type: LogicalType): boolean {
   return MECHANICAL.has(type);
@@ -472,22 +472,28 @@ function waitForOptions(el: HTMLElement, timeoutMs: number): Promise<HTMLElement
   });
 }
 
-/** Select a single option from this combobox per the configured strategy. */
-function selectCombobox(el: HTMLElement, strategy: SelectStrategy, match: string, rng: Rng): void {
-  const target = chooseComboboxOption(el, strategy, match, rng);
-  if (!target) return;
-  // A realistic single left-button tap. pointermove highlights the item
-  // (Radix marks its active item on pointermove), and the selection is
-  // committed on pointerup by Radix UI Select while Mantine/MUI/Chakra commit
-  // on click — firing the full pointer+mouse lifecycle (down/up then the
-  // mouse-compat events and click) commits the option under any model without
-  // library-specific branching.
+/**
+ * A realistic single left-button tap on a dropdown option. pointermove
+ * highlights the item (Radix marks its active item on pointermove), and the
+ * selection is committed on pointerup by Radix UI Select while Mantine/MUI/
+ * Chakra/Preline commit on click — firing the full pointer+mouse lifecycle
+ * (down/up then the mouse-compat events and click) commits the option under any
+ * model without library-specific branching.
+ */
+function commitOption(target: HTMLElement): void {
   fireEvent(target, 'pointermove');
   fireEvent(target, 'pointerdown');
   fireEvent(target, 'pointerup');
   fireEvent(target, 'mousedown');
   fireEvent(target, 'mouseup');
   target.click();
+}
+
+/** Select a single option from this combobox per the configured strategy. */
+function selectCombobox(el: HTMLElement, strategy: SelectStrategy, match: string, rng: Rng): void {
+  const target = chooseComboboxOption(el, strategy, match, rng);
+  if (!target) return;
+  commitOption(target);
 }
 
 export interface ComboboxFillOptions {
@@ -517,6 +523,122 @@ export function fillCombobox(el: HTMLElement, opts: ComboboxFillOptions = {}): v
   comboboxChain = comboboxChain.then(run).catch(() => {
     // A single combobox failing (no options, detached node) must not break the
     // chain for the rest of the form.
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Preline UI HSSelect — a native <select data-hs-select> whose presentation is
+// an overlay: a toggle <button> + a [data-hs-select-dropdown] of [data-value]
+// options. The native select is hidden (display:none) and Preline owns its
+// value, so the only reliable way to set it — and to fire the change event that
+// cascades to dependent fields (e.g. State populates after Country) — is to open
+// the toggle and click a real option, exactly like a user. Options carry
+// data-value (submit value) and data-title-value (label) instead of role=option,
+// and the toggle has no aria-controls, so this needs its own path (reusing the
+// combobox chain + commit sequence).
+// ---------------------------------------------------------------------------
+
+/** The Preline toggle <button> for a native <select data-hs-select>. */
+function prelineToggle(el: HTMLSelectElement): HTMLElement | null {
+  const wrapper = el.closest('.hs-select');
+  const scope = (wrapper as HTMLElement) ?? el.parentElement;
+  if (!scope) return null;
+  // The toggle is the <button> immediately preceding the dropdown panel.
+  const dropdown = scope.querySelector('[data-hs-select-dropdown]');
+  if (dropdown) {
+    let node: Element | null = dropdown.previousElementSibling;
+    while (node) {
+      if (node.tagName === 'BUTTON') return node as HTMLElement;
+      node = node.previousElementSibling;
+    }
+  }
+  // Fallback: the first <button> in the wrapper.
+  return scope.querySelector('button');
+}
+
+/** The Preline dropdown panel for a native select (null if not reachable). */
+function prelineDropdown(el: HTMLSelectElement): HTMLElement | null {
+  const wrapper = el.closest('.hs-select');
+  const scope = (wrapper as HTMLElement) ?? el.parentElement;
+  return (scope?.querySelector('[data-hs-select-dropdown]') as HTMLElement) ?? null;
+}
+
+function prelineOptionDisabled(o: HTMLElement): boolean {
+  return (
+    o.getAttribute('aria-disabled') === 'true' ||
+    o.hasAttribute('data-disabled') ||
+    (o as HTMLButtonElement).disabled === true
+  );
+}
+
+/** Visible, non-disabled Preline options ([data-value]) inside the dropdown. */
+function prelineOptions(dropdown: HTMLElement): HTMLElement[] {
+  return Array.from(dropdown.querySelectorAll<HTMLElement>('[data-value]')).filter(
+    (o) => !prelineOptionDisabled(o),
+  );
+}
+
+function choosePrelineOption(
+  dropdown: HTMLElement,
+  strategy: SelectStrategy,
+  match: string,
+  rng: Rng,
+): HTMLElement | null {
+  const options = prelineOptions(dropdown).map((o) => ({
+    el: o,
+    value: (o.getAttribute('data-value') ?? '').trim(),
+    text: (o.getAttribute('data-title-value') ?? o.textContent ?? '').trim(),
+  }));
+  const valid = options.filter((o) => o.value !== '');
+  const chosen = chooseFrom(valid, strategy, match, rng);
+  return chosen ? chosen.el : null;
+}
+
+/** Wait for at least one option in the Preline dropdown (usually immediate). */
+function waitForPrelineOptions(dropdown: HTMLElement, timeoutMs: number): Promise<void> {
+  if (prelineOptions(dropdown).length) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      clearTimeout(timer);
+      resolve();
+    };
+    const Win = dropdown.ownerDocument.defaultView;
+    const observer = new (Win?.MutationObserver ?? MutationObserver)(finish);
+    observer.observe(dropdown, { childList: true, subtree: true });
+    const timer = setTimeout(finish, timeoutMs);
+  });
+}
+
+/**
+ * Fill a Preline UI HSSelect by opening its toggle and clicking an option.
+ * Fire-and-forget on the shared combobox chain (settled via flushComboboxFills).
+ * Falls back to setting the native select's value + change event when the
+ * overlay can't be reached, so the form value (and dependent cascades) still set.
+ */
+export function fillPrelineSelect(el: HTMLSelectElement, opts: ComboboxFillOptions = {}): void {
+  const strategy = opts.strategy ?? 'random';
+  const match = opts.match ?? '';
+  const rng = opts.rng ?? defaultRng;
+  const timeout = opts.openTimeoutMs ?? COMBOBOX_OPEN_TIMEOUT_MS;
+  const run = async (): Promise<void> => {
+    const toggle = prelineToggle(el);
+    const dropdown = prelineDropdown(el);
+    if (!toggle || !dropdown) {
+      // Overlay unreachable: at least set the native value so submit + cascades work.
+      fillSelect(el, true, rng, strategy, match);
+      return;
+    }
+    openCombobox(toggle);
+    await waitForPrelineOptions(dropdown, timeout);
+    const target = choosePrelineOption(dropdown, strategy, match, rng);
+    if (target) commitOption(target);
+  };
+  comboboxChain = comboboxChain.then(run).catch(() => {
+    // A single Preline select failing must not break the chain.
   });
 }
 
