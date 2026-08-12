@@ -3,6 +3,16 @@
 All notable changes to **Input Filler** are listed here. Versions follow the packaged
 release zips in `.output/`.
 
+## [0.6.5] — 2026-08-12
+
+### Fixed
+- **Dependent / cascading dropdowns now fill.** A native `<select>` whose real
+  options arrive asynchronously after a parent field's change (e.g. State
+  populating after Country is chosen) was previously left empty: the fill pass
+  reached it while it still held only its placeholder option. Such selects are
+  now deferred and retried once a valid option appears (MutationObserver, 2s
+  timeout), so the dependent value is set before submit.
+
 ## [0.6.4] — 2026-08-08
 
 ### Added
