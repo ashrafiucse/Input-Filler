@@ -167,6 +167,47 @@ describe('page-level name/email consistency (F-SG1, origin §11)', () => {
   });
 });
 
+describe('intl-tel-input phone fields', () => {
+  it('fills E.164 when the input belongs to an intl-tel-input widget', () => {
+    // Markup mirroring the intl-tel-input widget: the tel input carries the
+    // widget's class + data attribute and sits inside an .iti wrapper.
+    setDoc(`
+      <form id="f">
+        <div class="iti iti--allow-dropdown iti--show-flags">
+          <input name="phone_number" id="phone" type="tel" class="iti__tel-input" data-intl-tel-input-id="0">
+        </div>
+      </form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    // A country-less national number would be bound to whatever country the
+    // widget has selected (e.g. Djibouti +253) and rejected as invalid.
+    expect(q.value).toMatch(/^\+1\d{10}$/);
+  });
+  it('detects the widget via data attribute alone', () => {
+    setDoc(`<form><input name="phone_number" type="tel" data-intl-tel-input-id="3"></form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\+1\d{10}$/);
+  });
+  it('detects the widget via the .iti wrapper alone (no input markers)', () => {
+    setDoc(`
+      <form>
+        <div class="iti iti--allow-dropdown">
+          <input name="phone_number" type="tel">
+        </div>
+      </form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\+1\d{10}$/);
+  });
+  it('plain tel inputs keep the (xxx) xxx-xxxx national format', () => {
+    setDoc(`<form><input name="phone_number" type="tel"></form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\(\d{3}\) \d{3}-\d{4}$/);
+  });
+});
+
 describe('fillCurrentForm', () => {
   it('fills only the focused form, leaving others untouched', () => {
     setDoc(`

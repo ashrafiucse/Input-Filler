@@ -59,6 +59,9 @@ describe('generators shape', () => {
   it('phone matches the (xxx) xxx-xxxx format', () => {
     for (let i = 0; i < 50; i++) expect(phone()).toMatch(PHONE_RE);
   });
+  it('phone fills E.164 (+1 then 10 digits) for country-aware widgets', () => {
+    for (let i = 0; i < 50; i++) expect(phone({ intl: true })).toMatch(/^\+1\d{10}$/);
+  });
   it('url is absolute and well-formed', () => {
     for (let i = 0; i < 50; i++) expect(url()).toMatch(URL_RE);
   });

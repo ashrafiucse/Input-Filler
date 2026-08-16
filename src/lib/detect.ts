@@ -142,6 +142,22 @@ export function isPrelineSelectDesc(desc: FieldDescriptor): boolean {
   return desc.tag === 'select' && desc.dataHsSelect != null;
 }
 
+/**
+ * True if the element belongs to an intl-tel-input (or clone) phone widget:
+ * the widget styles the tel input with its own class (`iti__tel-input`), tags
+ * it with a data attribute carrying the instance id, and keeps it inside an
+ * `.iti` wrapper. These widgets own a country selector and bind country-less
+ * values to the currently selected country, so they must be filled with a
+ * full international (E.164) number or validation fails.
+ */
+export function isIntlTelInputWidget(el: Element): boolean {
+  if (el.classList.contains('iti__tel-input')) return true;
+  if ((el as HTMLInputElement).dataset?.intlTelInputId != null) return true;
+  // v17+ wraps the input in `.iti`; v16 and older (and older react clones)
+  // wrapped it in `.intl-tel-input` instead.
+  return el.closest('.iti') != null || el.closest('.intl-tel-input') != null;
+}
+
 /** Resolve associated label text: <label for>, wrapping <label>, or aria-labelledby. */
 function resolveLabel(el: Element): string | undefined {
   const labels = (el as HTMLInputElement).labels;

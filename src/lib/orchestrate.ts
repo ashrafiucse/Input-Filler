@@ -7,7 +7,7 @@
 // and reused so an email derives from the name shown in the name field.
 
 import { fillField, fillCombobox, fillPrelineSelect, fillSelectDeferred, selectHasValidOptions, clearContentEditable, isMechanicalType } from './fillers';
-import { describeField, detectType, isContentEditableEl, isComboboxDesc, isPrelineSelectDesc, isSecurityTokenField, resolveMediaProvider, mediaContext } from './detect';
+import { describeField, detectType, isContentEditableEl, isComboboxDesc, isPrelineSelectDesc, isSecurityTokenField, resolveMediaProvider, mediaContext, isIntlTelInputWidget } from './detect';
 import { matchRules, resolveFill, type CustomRule } from './rules';
 import type { FillerSettings } from './settings';
 import {
@@ -209,7 +209,7 @@ function generateValue(
     case 'username':
       return username({ first: page.first, last: page.last });
     case 'phone':
-      return phone(rng);
+      return phone({ rng, intl: isIntlTelInputWidget(el) });
     case 'street':
       return street(rng);
     case 'city':

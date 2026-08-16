@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, isPrelineSelectDesc, type FieldDescriptor } from '../src/lib/detect';
+import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, isPrelineSelectDesc, isIntlTelInputWidget, type FieldDescriptor } from '../src/lib/detect';
 
 function input(attrs: Partial<FieldDescriptor> = {}): FieldDescriptor {
   return { tag: 'input', type: 'text', ...attrs };
@@ -292,5 +292,32 @@ describe('ARIA combobox dropdowns (Mantine/MUI/Chakra Select)', () => {
   });
   it('a contenteditable with role=combobox stays paragraph (rich-text guard)', () => {
     expect(detectType({ tag: 'div', role: 'combobox', isContentEditable: true } as FieldDescriptor)).toBe('paragraph');
+  });
+});
+
+describe('isIntlTelInputWidget', () => {
+  function tel(attrs: Record<string, string> = {}): HTMLInputElement {
+    const el = document.createElement('input');
+    el.type = 'tel';
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    document.body.appendChild(el);
+    return el;
+  }
+  it('is flagged on the widget class or data attribute', () => {
+    expect(isIntlTelInputWidget(tel({ class: 'iti__tel-input' }))).toBe(true);
+    expect(isIntlTelInputWidget(tel({ 'data-intl-tel-input-id': '0' }))).toBe(true);
+  });
+  it('is flagged via the wrapper only (v17+ .iti, v16- .intl-tel-input)', () => {
+    const doc = document.implementation.createHTMLDocument();
+    for (const wrapperClass of ['iti', 'intl-tel-input']) {
+      const wrap = doc.createElement('div');
+      wrap.className = wrapperClass;
+      const inner = doc.createElement('input');
+      wrap.appendChild(inner);
+      expect(isIntlTelInputWidget(inner)).toBe(true);
+    }
+  });
+  it('a plain tel input is not flagged', () => {
+    expect(isIntlTelInputWidget(tel())).toBe(false);
   });
 });
