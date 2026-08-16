@@ -1,0 +1,89 @@
+name: Build & update release assets
+
+# Keeps the prebuilt downloads in sync with main. On every push to main this
+# workflow rebuilds both browser zips and refreshes the assets on the
+# vX.Y.Z release (version comes from package.json), behind the README's
+# permanent links:
+#
+#   https://github.com/ashrafiucse/Input-Filler/releases/latest/download/input-filler-chrome.zip
+#   https://github.com/ashrafiucse/Input-Filler/releases/latest/download/input-filler-firefox.zip
+#
+# - Assets use stable names, so those URLs always serve the latest build and
+#   the README never needs editing.
+# - Pushing code WITHOUT bumping the version simply replaces the existing
+#   release's assets with the fresh build (same tag, latest code).
+# - Bumping package.json's version (and wxt.config.ts) makes the next push
+#   cut a brand-new release entry (notes auto-generated from commits), which
+#   then becomes "latest".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Rapid pushes: let the newest commit win instead of racing two uploads.
+concurrency:
+  group: release-assets
+  cancel-in-progress: true
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build zips (Chrome + Firefox)
+        run: |
+          npm run zip
+          npx wxt zip -b firefox
+
+      - name: Publish assets to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          echo "Publishing assets to release ${TAG}"
+
+          # Create the release when this version has none yet; if it already
+          # exists, keep it (and its notes) and just refresh the assets below.
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+
+          # Stable asset names so the README's latest/download URLs never change.
+          cp ".output/input-filler-${VERSION}-chrome.zip"  .output/input-filler-chrome.zip
+          cp ".output/input-filler-${VERSION}-firefox.zip" .output/input-filler-firefox.zip
+
+          # --clobber replaces assets of the same name on the release.
+          gh release upload "$TAG" \
+            .output/input-filler-chrome.zip \
+            .output/input-filler-firefox.zip \
+            --clobber
+
+          {
+            echo "### Download links refreshed :arrow_down:"
+            echo "- [\`input-filler-chrome.zip\`](https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/input-filler-chrome.zip) — Chrome / Edge / Brave"
+            echo "- [\`input-filler-firefox.zip\`](https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/input-filler-firefox.zip) — Firefox"
+            echo "Built from commit \`${GITHUB_SHA::7}\` (v${VERSION})."
+          } >> "$GITHUB_STEP_SUMMARY"

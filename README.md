@@ -17,7 +17,7 @@ Download the latest build for your browser, unzip it, and load it — no build t
 | Chrome / Edge / Brave | [⬇︎ Input Filler (Chrome build)](https://github.com/ashrafiucse/Input-Filler/releases/latest/download/input-filler-chrome.zip) |
 | Firefox | [⬇︎ Input Filler (Firefox build)](https://github.com/ashrafiucse/Input-Filler/releases/latest/download/input-filler-firefox.zip) |
 
-> If the links 404, no release has been published yet — see [Releases](https://github.com/ashrafiucse/Input-Filler/releases), or build from source below. All past versions are on the Releases page too.
+> If the links 404, no release has been published yet — see [Releases](https://github.com/ashrafiucse/Input-Filler/releases), or build from source below. All past versions are on the Releases page too. These builds are rebuilt automatically on every update to `main`, so they always contain the latest code.
 
 **After downloading:**
 
