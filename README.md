@@ -131,4 +131,4 @@ scripts/          icon generator
 
 ## License
 
-TBD — choose before publishing. The bundled wordlists and corpus are original compositions.
+MIT — see [LICENSE](LICENSE). The bundled wordlists and corpus are original compositions.
