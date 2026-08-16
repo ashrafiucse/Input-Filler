@@ -1,6 +1,6 @@
 {
   "name": "input-filler",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "Cross-browser extension that fills every form field with realistic, human-readable data.",
   "private": true,
   "type": "module",

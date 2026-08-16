@@ -8,6 +8,23 @@ v1 ships the readable-data core, smart field detection, per-type filling with SP
 
 **Browser targets:** Chrome, Edge, Brave (Chromium, MV3) and Firefox (MV2). Safari is deferred (needs macOS/Xcode).
 
+## Install
+
+Download the latest build for your browser, unzip it, and load it — no build tools needed.
+
+| Browser | Download |
+| --- | --- |
+| Chrome / Edge / Brave | [⬇︎ Input Filler (Chrome build)](https://github.com/ashrafiucse/Input-Filler/releases/latest/download/input-filler-chrome.zip) |
+| Firefox | [⬇︎ Input Filler (Firefox build)](https://github.com/ashrafiucse/Input-Filler/releases/latest/download/input-filler-firefox.zip) |
+
+> If the links 404, no release has been published yet — see [Releases](https://github.com/ashrafiucse/Input-Filler/releases), or build from source below. All past versions are on the Releases page too.
+
+**After downloading:**
+
+1. **Unzip** the file to a permanent folder (you'll point the browser at it, so don't delete it afterwards — e.g. `Documents/input-filler-chrome`).
+2. **Chrome / Edge / Brave:** open `chrome://extensions` (Edge: `edge://extensions`) → turn on **Developer mode** (top right) → **Load unpacked** → select the unzipped folder.
+3. **Firefox:** open `about:debugging` → **This Firefox** → **Load Temporary Add-on…** → select `manifest.json` inside the unzipped folder. (Firefox temporary add-ons unload on browser restart — reload it the same way, or use the Chrome build in a Chromium browser for a persistent install.)
+
 ## Install (development)
 
 ```bash

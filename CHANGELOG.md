@@ -3,6 +3,23 @@
 All notable changes to **Input Filler** are listed here. Versions follow the packaged
 release zips in `.output/`.
 
+## [0.6.7] — 2026-08-16
+
+### Fixed
+- **Phone fields on country-code widgets (intl-tel-input) now fill with a valid
+  number.** Phone fields were previously filled with a country-less US national
+  number (`(933) 794-6994`); country-aware widgets such as intl-tel-input bind
+  such values to whatever country the widget has selected, so on a form
+  defaulting to Djibouti the submitted number became `+2539337946994` and failed
+  validation ("Please enter a valid phone number with country code"). Widget
+  inputs are now detected (the `iti__tel-input` class, the
+  `data-intl-tel-input-id` attribute, or the `.iti` / legacy `.intl-tel-input`
+  wrapper) and filled with a full international `+1` number, which the widget
+  parses to switch its country selection. Area codes are drawn from assigned US
+  geographic NANP codes — the previous 201–989 range included toll-free / 900 /
+  Caribbean codes that strict validators reject (43% of draws). Plain `tel`
+  inputs keep the `(xxx) xxx-xxxx` format.
+
 ## [0.6.6] — 2026-08-12
 
 ### Added
