@@ -173,7 +173,13 @@ export function shouldSkip(el: HTMLElement, desc: ReturnType<typeof describeFiel
   // Optionally leave a dropdown that already has a chosen value untouched.
   if (settings.select.skipIfSelected && (desc.tag === 'select' || isComboboxDesc(desc)) && dropdownHasSelection(el, desc)) return true;
   if (matchesAny(desc, settings.fields.ignoreFields)) return true;
-  if (settings.fields.ignoreHiddenInvisible && !isVisible(el) && !isPrelineSelectDesc(desc)) return true;
+  // A hidden native <select> is a widget-backed dropdown (select2, Chosen,
+  // jQuery UI selectmenu render a visible UI over a hidden native select), not
+  // an anti-bot honeypot (those are text inputs). Those widgets listen for the
+  // native `change` event and sync their UI, so filling the hidden select both
+  // submits a real value and updates the visible widget. Exempt selects (and
+  // Preline, which is the same pattern) from the hidden-field skip.
+  if (settings.fields.ignoreHiddenInvisible && !isVisible(el) && desc.tag !== 'select') return true;
   if (settings.fields.ignoreFieldsWithContent && hasContent(el, desc)) return true;
   return false;
 }
@@ -407,8 +413,15 @@ function fillScope(scope: ParentNode, ctx: FillContext): FillResult {
   let filled = 0;
   let skipped = 0;
   for (const el of discoverFields(scope)) {
-    if (fillOne(el, ctx.settings, ctx.rules, ctx.origin, page, rng, state).filled) filled++;
-    else skipped++;
+    // Exception isolation: one poisoned field (a throwing getter, a detached
+    // node, a framework proxy) must never abort the pass — every remaining
+    // confirmed field still gets its fill attempt.
+    try {
+      if (fillOne(el, ctx.settings, ctx.rules, ctx.origin, page, rng, state).filled) filled++;
+      else skipped++;
+    } catch {
+      skipped++;
+    }
   }
   return { filled, skipped };
 }
@@ -444,38 +457,51 @@ export function fillCurrentForm(doc: Document, activeElement: Element | null, ct
 export function clearAllForms(doc: Document): number {
   let cleared = 0;
   for (const el of discoverFields(doc.body)) {
+    // Same exception isolation as the fill path: one bad element must not stop
+    // the remaining fields from being cleared.
+    try {
+      cleared += clearOne(el);
+    } catch {
+      // Skip the poisoned field.
+    }
+  }
+  return cleared;
+}
+
+function clearOne(el: HTMLElement): number {
     if (isContentEditableEl(el)) {
       if (el.textContent && el.textContent.trim()) {
         clearContentEditable(el);
-        cleared++;
+        return 1;
       }
-      continue;
+      return 0;
     }
     const input = el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    if (input.type === 'hidden' || input.disabled || (input as HTMLInputElement).readOnly) continue;
+    if (input.type === 'hidden' || input.disabled || (input as HTMLInputElement).readOnly) return 0;
     // Same token protection as the fill path (see shouldSkip).
-    if (isSecurityTokenField(describeField(el))) continue;
+    if (isSecurityTokenField(describeField(el))) return 0;
     // Preline selects are cleared via their overlay; setting the hidden native
     // value here would desync the toggle, so leave them to the fill path.
-    if (isPrelineSelectDesc(describeField(el))) continue;
+    if (isPrelineSelectDesc(describeField(el))) return 0;
     if (input.type === 'checkbox' || input.type === 'radio') {
       if ((input as HTMLInputElement).checked) {
         (input as HTMLInputElement).checked = false;
         input.dispatchEvent(new Event('change', { bubbles: true }));
-        cleared++;
+        return 1;
       }
+      return 0;
     } else if (el.tagName.toLowerCase() === 'select') {
       if ((input as HTMLSelectElement).value) {
         (input as HTMLSelectElement).value = '';
         input.dispatchEvent(new Event('change', { bubbles: true }));
-        cleared++;
+        return 1;
       }
+      return 0;
     } else if ((input as HTMLInputElement).value) {
       (input as HTMLInputElement).value = '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
-      cleared++;
+      return 1;
     }
-  }
-  return cleared;
+    return 0;
 }

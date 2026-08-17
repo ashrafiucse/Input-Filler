@@ -50,7 +50,9 @@ function setNativeValue(
       : el instanceof HTMLSelectElement
         ? HTMLSelectElement.prototype
         : HTMLInputElement.prototype;
-  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, value);
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+  if (setter) setter.call(el, value);
+  else el.value = value; // exotic prototype without a descriptor: assign directly
 }
 
 function setValue(el: HTMLElement, value: string): void {

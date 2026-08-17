@@ -43,8 +43,14 @@ export default defineContentScript({
             // AI pass, which only refines free-text fields and never touches them).
             await flushComboboxFills();
             await flushDeferredSelects();
-            if (settings.general.useOnDeviceAI && isOnDeviceAIAvailable()) {
-              await enhanceTextFieldsWithAI(document, settings);
+            // AI refinement is best-effort: a failure there must never lose the
+            // fill result the user asked for.
+            try {
+              if (settings.general.useOnDeviceAI && isOnDeviceAIAvailable()) {
+                await enhanceTextFieldsWithAI(document, settings);
+              }
+            } catch {
+              // keep the fill result
             }
             return result;
           }

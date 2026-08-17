@@ -7,10 +7,17 @@
 //
 // The regex bank is keyword-driven (label/name/placeholder/aria/class) so the
 // same rules fill an LMS course-title field, a generic "Job title", or any other
-// project's fields — nothing here is hard-coded to a specific app.
+// project's fields — nothing here is hard-coded to a specific app. Matching is
+// partial-tolerant: the haystack is normalized (camelCase split, separators
+// collapsed) and most patterns match unanchored, so a small fragment such as
+// "userEmailField", "phoneNumber" or "Alternative Email" still identifies the
+// field. Only tokens with common English collisions (e.g. `state`, which lives
+// inside "estimated") keep word boundaries.
 //
 // Works on a plain FieldDescriptor so the resolver is fully unit-testable; the
 // orchestrator builds a descriptor from a live element via describeField().
+
+import { I18N_KEYWORDS } from './i18n-keywords';
 
 export type MatchAttribute =
   | 'id'
@@ -158,7 +165,8 @@ export function isIntlTelInputWidget(el: Element): boolean {
   return el.closest('.iti') != null || el.closest('.intl-tel-input') != null;
 }
 
-/** Resolve associated label text: <label for>, wrapping <label>, or aria-labelledby. */
+/** Resolve associated label text: <label for>, wrapping <label>, aria-labelledby,
+ * or the sibling <label> of a horizontal form row (see siblingLabel). */
 function resolveLabel(el: Element): string | undefined {
   const labels = (el as HTMLInputElement).labels;
   if (labels && labels.length) {
@@ -176,35 +184,94 @@ function resolveLabel(el: Element): string | undefined {
     const t = target?.textContent ?? undefined;
     if (t) return t.trim();
   }
+  return siblingLabel(el);
+}
+
+/** Label-ish elements: a real <label>, Angular Material's <mat-label>, or an
+ * element explicitly marked up as one (role="label"/aria-label wrapper). */
+const LABEL_SELECTOR = 'label, mat-label, [role="label"]';
+
+function labelFor(l: Element, el: Element): boolean {
+  // Skip labels that wrap the input itself (already handled) and labels whose
+  // for= points at a DIFFERENT control.
+  const f = l.getAttribute('for');
+  return !l.contains(el) && (!f || f === el.id);
+}
+
+/**
+ * Sibling-label fallback for horizontal form layouts: Bootstrap `.form-group`
+ * rows (and the KeenThemes/Vue admin forms built on them) put the label in a
+ * sibling column with no `for`/`id` pairing, so none of the standard label
+ * associations resolve and the field carries no other identity signal. Climb a
+ * few ancestors and accept the first level that holds exactly one usable label
+ * the input does not live inside. When a level holds SEVERAL labels, pair the
+ * k-th label with the k-th field by DOM order (a Bootstrap grid row, a flex
+ * row, or a table row with "First Name | Last Name" columns) — but only when
+ * the label count matches the field count exactly. Requiring this (and stopping
+ * at the first unpairable ambiguous level) keeps a whole-<form> wrapper —
+ * dozens of labels — from being mistaken for the field's own row.
+ */
+function siblingLabel(el: Element): string | undefined {
+  let node: Element | null = el.parentElement;
+  for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
+    if (node.tagName === 'FORM' || node.tagName === 'FIELDSET') break;
+    const candidates = Array.from(node.querySelectorAll(LABEL_SELECTOR)).filter((l) => labelFor(l, el));
+    if (candidates.length === 1) {
+      const t = (candidates[0]?.textContent ?? '').trim();
+      if (t) return t;
+      continue;
+    }
+    if (candidates.length > 1) {
+      const fields = Array.from(node.querySelectorAll('input,textarea,select')).filter(
+        (f) => !candidates.some((l) => l.contains(f)),
+      );
+      if (fields.length === candidates.length) {
+        const idx = fields.indexOf(el);
+        if (idx >= 0) {
+          const t = (candidates[idx]?.textContent ?? '').trim();
+          if (t) return t;
+        }
+      }
+      break; // unpaired ambiguity — climbed too far, stop
+    }
+  }
   return undefined;
 }
 
+// The haystack is normalized (see normalizeHaystack) before testing, so the
+// patterns below are written against lowercase words separated by single
+// spaces; `\s*` tolerates both a space and no space ("first name" and
+// "firstname"). Most patterns deliberately match UNANCHORED so a small
+// partial hit ("userEmailField", "phoneNumber") identifies the field; only
+// collision-prone short tokens (state/region/province) keep \b word guards.
 const REGEX_RULES: ReadonlyArray<readonly [RegExp, LogicalType]> = [
   // High-specificity content/intent signals (evaluated first; first match wins).
-  [/\bsearch\b/i, 'search'],
-  [/\b(objective|learning[\s_-]?outcome|learning[\s_-]?goal)\b/i, 'objective'],
-  [/\b(course|chapter|lesson|quiz|assignment|session|curriculum|module|cohort|project|class|tutorial|webinar)\s*[\s_-]?(title|name|topic)\b/i, 'title'],
-  [/\b(sub[\s_-]?domain|slug|namespace|handle)\b/i, 'subdomain'],
-  [/\btax\s*[\s_-]?(name|label|title|type)\b/i, 'tax_name'],
-  [/\b(saved[\s_-]?view|view[\s_-]?name)\b/i, 'title'],
+  [/search/, 'search'],
+  // Password by keyword (label-only case; type=password and placeholder cues are
+  // caught earlier). Early so "current password" beats the username rule.
+  [/password|passcode/, 'password'],
+  [/(objective|learning\s*outcome|learning\s*goal)/, 'objective'],
+  [/(course|chapter|lesson|quiz|assignment|session|curriculum|module|cohort|project|class|tutorial|webinar)\s*(title|name|topic)/, 'title'],
+  [/(sub\s*domain|slug|namespace|handle)/, 'subdomain'],
+  [/tax\s*(name|label|title|type)/, 'tax_name'],
+  [/(saved\s*view|view\s*name)/, 'title'],
   // Identity / contact.
-  [/(full|complete)[\s_-]?name/i, 'full_name'],
-  [/(first|given)[\s_-]?name/i, 'first_name'],
-  [/(last|family|sur)[\s_-]?name/i, 'last_name'],
-  [/e[-_]?mail/i, 'email'],
-  [/(phone|mobile|tel|fax)/i, 'phone'],
-  [/(zip|postal|post[\s_-]?code)/i, 'zip'],
-  [/(city|town)/i, 'city'],
-  [/(state|province|region)/i, 'state'],
-  [/(country|nation)/i, 'country'],
-  [/(street|addr(?:ess)?[\s_-]?1|addressline1)/i, 'street'],
-  // Organization / platform / tenant name (broader than just "company").
-  [/(company|org(?:ani[sz]ation)?|business|platform|tenant|academy|institute|school|brand|workspace)/i, 'company'],
-  [/(job[\s_-]?title|position|role)/i, 'job_title'],
-  [/(user|login|account|nick)/i, 'username'],
-  [/(url|website|homepage)/i, 'url'],
+  [/(full|complete)\s*name/, 'full_name'],
+  [/(first|given)\s*name/, 'first_name'],
+  [/(last|family|sur)\s*name/, 'last_name'],
+  [/e\s*mail/, 'email'],
+  [/(phone|mobile|tel|fax|cell|whatsapp|contact\s*(?:no|number|phone))/, 'phone'],
+  [/(zip|postal|post\s*code)/, 'zip'],
+  [/(city|town)/, 'city'],
+  [/\b(state|province|region)\b/, 'state'],
+  [/(country|nation)/, 'country'],
+  [/(street|addr(?:ess)?\s*1|address\s*line\s*1|address)/, 'street'],
+  [/(company|organi[sz]ation|business|platform|tenant|academy|institute|school|brand|workspace)|\borg\b/, 'company'],
+  [/(job\s*title|position|role)/, 'job_title'],
+  [/(user|login|account|nick)/, 'username'],
+  [/(url|website|homepage)/, 'url'],
   // Generic title/heading (after job_title so "Job Title" keeps its meaning).
-  [/\b(title|heading)\b/i, 'title'],
+  [/(title|heading)/, 'title'],
 ];
 
 const AUTOCOMPLETE_MAP: Record<string, LogicalType> = {
@@ -247,13 +314,11 @@ function mapAutocomplete(ac: string): LogicalType | undefined {
  * fallback for checkouts that omit it.
  */
 function cardSignal(desc: FieldDescriptor): LogicalType | undefined {
-  const hay = [desc.name, desc.id, desc.placeholder, desc.ariaLabel, desc.label]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-    .replace(/[_\-]+/g, ' ');
+  const hay = normalizeHaystack(
+    [desc.name, desc.id, desc.placeholder, desc.ariaLabel, desc.label].filter(Boolean).join(' '),
+  );
   if (!hay) return undefined;
-  if (/(?:cc|card)\s*number|card\s*no\b/.test(hay)) return 'cc_number';
+  if (/(?:cc|card)\s*number|card\s*no\b|cardnum/.test(hay)) return 'cc_number';
   if (/expir|expiry|(?:cc|card)\s*exp/.test(hay)) return 'cc_exp';
   if (/cvc|cvv|csc|security\s*code|card\s*code|cid\b/.test(hay)) return 'cc_csc';
   return undefined;
@@ -370,8 +435,8 @@ export type MediaProvider = 'youtube' | 'vimeo' | 'spotify' | 'soundcloud';
 export function mediaContext(desc: FieldDescriptor): 'audio' | 'video' | undefined {
   const hay = mediaHaystack(desc);
   if (!hay) return undefined;
-  if (/\b(spotify|soundcloud|audio|podcast)\b/.test(hay) || /spotify\.com|soundcloud\.com/.test(hay)) return 'audio';
-  if (/\b(youtube|youtu\.be|vimeo|loom|video)\b/.test(hay) || /youtube\.com|vimeo\.com/.test(hay)) return 'video';
+  if (/\b(spotify|soundcloud|audio|podcast)\b/.test(hay)) return 'audio';
+  if (/\b(youtube|youtu\.be|vimeo|loom|video)\b/.test(hay)) return 'video';
   return undefined;
 }
 
@@ -379,19 +444,56 @@ export function mediaContext(desc: FieldDescriptor): 'audio' | 'video' | undefin
 export function resolveMediaProvider(desc: FieldDescriptor): MediaProvider | undefined {
   const hay = mediaHaystack(desc);
   if (!hay) return undefined;
-  if (/\bspotify\b/.test(hay) || /spotify\.com/.test(hay)) return 'spotify';
-  if (/\bsoundcloud\b/.test(hay) || /soundcloud\.com/.test(hay)) return 'soundcloud';
-  if (/\b(youtube|youtu\.be)\b/.test(hay) || /youtube\.com/.test(hay)) return 'youtube';
-  if (/\bvimeo\b/.test(hay) || /vimeo\.com/.test(hay)) return 'vimeo';
+  if (/\bspotify\b/.test(hay)) return 'spotify';
+  if (/\bsoundcloud\b/.test(hay)) return 'soundcloud';
+  if (/\b(youtube|youtu\.be)\b/.test(hay)) return 'youtube';
+  if (/\bvimeo\b/.test(hay)) return 'vimeo';
   return undefined;
 }
 
 function mediaHaystack(desc: FieldDescriptor): string {
-  return [desc.placeholder, desc.label, desc.ariaLabel, desc.name, desc.id, desc.className]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-    .replace(/[_\-/]+/g, ' '); // snake/kebab/slash → spaces so \b matches "spotify_track"
+  // Normalized like the main haystack so camelCase ("youTubeUrl") and
+  // snake/kebab/slash ("spotify_track", "vimeo/video") match equally.
+  return normalizeHaystack(
+    [desc.placeholder, desc.label, desc.ariaLabel, desc.name, desc.id, desc.className]
+      .filter(Boolean)
+      .join(' '),
+  );
+}
+
+/**
+ * Normalize a haystack for keyword matching. Produces THREE variants joined
+ * into one string:
+ *  1. camelCase split into words ("firstName" -> "first name"),
+ *  2. the original word boundaries intact ("YouTube" must NOT become
+ *     "you tube", "SoundCloud" must not become "sound cloud"),
+ *  3. the intact variant with diacritics folded away (NFD + combining-mark
+ *     strip), so an unaccented keyword ("direccion", "prenom", "telefone")
+ *     matches the accented real-world text ("Dirección", "Prénom",
+ *     "Téléphone"), and vice versa.
+ * Any run of non-letter/non-digit characters (Unicode-aware, so accented
+ * letters, Cyrillic, CJK survive) collapses to a single space.
+ */
+function normalizeHaystack(s: string): string {
+  const collapse = (t: string): string => t.replace(/[^\p{L}\p{N}]+/gu, ' ');
+  const camelSplit = collapse(s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase());
+  const intact = collapse(s.toLowerCase());
+  const folded = intact.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return `${camelSplit} ${intact} ${folded}`.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Localized label tokens for one logical type ("Vorname", "Prénom", "Straße"…).
+ * Consulted right after each rule's English pattern, preserving overall rule
+ * priority. Code attributes (name/id/class/autocomplete) are written in
+ * English on virtually every multilingual site, so the English bank already
+ * classifies those; this catches fields whose ONLY signal is a localized
+ * human-visible label. Tokens are matched as substrings of the normalized
+ * haystack, so "vornamefeld" matches "vorname" too.
+ */
+function i18nMatch(hay: string, type: LogicalType): boolean {
+  const tokens = I18N_KEYWORDS[type];
+  return tokens ? tokens.some((t) => hay.includes(t)) : false;
 }
 
 function buildHaystack(desc: FieldDescriptor, attrs: MatchAttribute[]): string {
@@ -421,7 +523,7 @@ function buildHaystack(desc: FieldDescriptor, attrs: MatchAttribute[]): string {
         break;
     }
   }
-  return parts.join(' ');
+  return normalizeHaystack(parts.join(' '));
 }
 
 export function detectType(
@@ -504,10 +606,13 @@ export function detectType(
   //    match the email regex and receive an email address).
   if (desc.tag === 'textarea' || desc.isContentEditable) return 'paragraph';
 
-  // 8. Regex over the configured match attributes.
+  // 8. Regex over the configured match attributes — English keywords first,
+  //    then the localized label tokens for the same rule, so "Vorname"
+  //    classifies exactly like "First Name" without disturbing rule priority.
   const hay = buildHaystack(desc, matchAttrs);
   for (const [re, type] of REGEX_RULES) {
     if (re.test(hay)) return type;
+    if (i18nMatch(hay, type)) return type;
   }
 
   // 9. Element-type fallback.
