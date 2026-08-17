@@ -3,6 +3,72 @@
 All notable changes to **Input Filler** are listed here. Versions follow the packaged
 release zips in `.output/`.
 
+## [0.6.8] — 2026-08-17
+
+### Fixed
+- **Unlabeled inputs on Bootstrap-style horizontal forms now fill correctly
+  (GitHub issue #1).** KeenThemes/Vue admin forms (and any Bootstrap `.form-group`
+  layout) put the `<label>` in a sibling column with no `for`/`id` pairing, so a
+  field whose input carries no `name`, `id`, `autocomplete` or keyword
+  `placeholder` had no identity signal at all — "First Name"/"Last Name"/
+  "Company Name" fell through detection and were filled with filler prose
+  instead of a name. Labels are now also resolved from the sibling column: the
+  resolver climbs the ancestors of the input and accepts the first level that
+  holds exactly one usable `<label>` (one whose `for=` doesn't point elsewhere
+  and that doesn't wrap the input), stopping at the first ambiguous level so a
+  whole-`<form>` wrapper is never mistaken for the field's own row.
+
+### Added
+- **Localized forms now fill type-correct values too.** Multilingual sites
+  write their code attributes (name/id/class/autocomplete) in English, so the
+  English keyword bank already classified those; a field whose ONLY signal is a
+  localized visible label ("Vorname", "Prénom", "Code postal", "Straße",
+  "Телефон") previously fell back to dummy text. A curated keyword bank per
+  logical type (de/fr/es/it/pt/pl/nl/ru/ja/zh) is now consulted right after each
+  English rule, preserving rule priority. The haystack normalization keeps
+  Unicode letters and folds diacritics, so "Direccion" matches "Dirección",
+  "prenom" matches "Prénom", and "Téléphone" even matches the English `phone`
+  token after folding. Ambiguous short tokens (bare "nome", the single CJK
+  character "名") are deliberately excluded — a misdetected type is worse than
+  a readable fallback.
+
+### Changed
+- **Angular Material forms fill correctly.** `<mat-label>` is not a `<label>`
+  element, so label resolution never saw it; it is now part of the sibling-label
+  search, so `<mat-form-field><mat-label>First name</mat-label><input matInput>`
+  classifies as first_name.
+- **Grid/flex rows with multiple label+field pairs now pair label-to-input.**
+  A row like `<div class="row"><label>First Name</label><input…><label>Last
+  Name</label><input…></div>` previously looked ambiguous and refused to guess;
+  when a level's label count exactly matches its field count, the k-th label is
+  paired with the k-th field by DOM order. Counts mismatch → still refuses.
+- **Widget-backed hidden selects (select2/Chosen/jQuery UI selectmenu) now
+  fill.** Those widgets render a visible UI over a `display:none` native
+  `<select>`; the hidden-skip previously left them untouched. A hidden native
+  select is not an anti-bot honeypot (those are text inputs), and the widgets
+  sync off the native `change` event, so the hidden select is now filled and
+  the event dispatched — the visible widget updates and the form submits a real
+  value. Hidden text inputs remain honeypot-protected.
+- **Password-by-label detection.** A text input labeled "Password" (no
+  type=password, no placeholder cue) previously fell through to dummy text; a
+  keyword rule now classifies it (and its localized equivalents — "Passwort",
+  "Contraseña", "Пароль") before the username/identity rules.
+- **Field matching is now partial-tolerant.** The keyword haystack is normalized
+  (camelCase split, snake/kebab/slash collapsed, CamelCase brand words kept
+  intact) and the rule patterns match unanchored, so a small fragment such as
+  `userEmailField`, `phoneNumber`, `searchTerm`, `contact number` or `cell-no`
+  identifies the field instead of falling through to dummy text. Collision-prone
+  tokens keep word guards ("estimated" is not a **state**; "contact person" is
+  not a phone).
+- **A confirmed input or dropdown is never left empty by an exception.** Each
+  field is filled inside its own try/catch, so one poisoned field (a throwing
+  getter, a detached node, a framework proxy) no longer aborts the whole fill
+  pass — every remaining field still gets its fill attempt, and a dropdown
+  still gets a valid option. Clearing got the same isolation, and the optional
+  on-device-AI refinement pass is now best-effort (a failure there can no longer
+  lose the fill result). Unknown-but-confirmed text inputs keep receiving a
+  readable dummy sentence as the final fallback.
+
 ## [0.6.7] — 2026-08-16
 
 ### Fixed
