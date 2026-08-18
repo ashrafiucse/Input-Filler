@@ -3,6 +3,23 @@
 All notable changes to **Input Filler** are listed here. Versions follow the packaged
 release zips in `.output/`.
 
+## [0.6.9] — 2026-08-18
+
+### Fixed
+- **Country-code phone fields on plain tel inputs now fill in E.164.** Sites
+  whose phone validation only accepts full international numbers (rejecting
+  "(480) 756-0648" while accepting "+3814807560648") but render a plain
+  `type="tel"` input — not an intl-tel-input widget — were filled with the US
+  national format and refused on submit. The new `wantsIntlPhone` heuristic
+  keeps intl-tel-input detection and additionally switches to E.164
+  ("+1\u2026") when the field advertises the requirement: a placeholder with a
+  country-coded example ("+381 63 123 4567") or the words "country code"/
+  "international", a `pattern` requiring a literal `+` (escaped `\+` or `[+]`;
+  a bare `+` is a quantifier, not a literal), or a label/aria-label/title
+  mentioning the country code. A `maxlength` under 12 characters (too short
+  for "+1" + 10 digits) suppresses E.164 so values are never truncated
+  mid-number. Unhinted fields keep the (xxx) xxx-xxxx national format.
+
 ## [0.6.8] — 2026-08-17
 
 ### Fixed
