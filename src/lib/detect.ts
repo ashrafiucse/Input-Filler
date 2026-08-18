@@ -165,6 +165,40 @@ export function isIntlTelInputWidget(el: Element): boolean {
   return el.closest('.iti') != null || el.closest('.intl-tel-input') != null;
 }
 
+/**
+ * True if a phone field must be filled with a full international (E.164,
+ * "+<countrycode><number>") value. Covers intl-tel-input widgets plus plain
+ * type="tel" inputs whose site validation only accepts country-coded numbers
+ * (rejecting "(480) 756-0648" while accepting "+3814807560648"). Such fields
+ * advertise the requirement with hints:
+ *  - a placeholder showing a country-coded example ("+381 63 123 4567") or
+ *    asking for the country code in words ("with country code"),
+ *  - a pattern that requires a literal "+" (escaped as `\+` or `[+]`; a bare
+ *    "+" is a regex quantifier and never a literal),
+ *  - a label / aria-label / title mentioning the country code or an
+ *    "international" number.
+ * A maxlength too short for E.164 ("+1" + 10 digits = 12 chars) suppresses
+ * the international format so the value cannot be truncated mid-number.
+ */
+export function wantsIntlPhone(el: Element, desc: FieldDescriptor): boolean {
+  if (isIntlTelInputWidget(el)) return true;
+  const input = el as HTMLInputElement;
+  const max = input.maxLength;
+  if (max > 0 && max < 12) return false;
+  const intlWord = /(international|intl|country[\s-]*code)/i;
+  if (desc.placeholder) {
+    if (/\+\s*\d/.test(desc.placeholder)) return true;
+    if (intlWord.test(desc.placeholder)) return true;
+  }
+  const pattern = input.getAttribute('pattern');
+  if (pattern && (/\\\+/.test(pattern) || /\[\+\]/.test(pattern))) return true;
+  if (desc.label && intlWord.test(desc.label)) return true;
+  if (desc.ariaLabel && intlWord.test(desc.ariaLabel)) return true;
+  const title = input.getAttribute('title');
+  if (title && intlWord.test(title)) return true;
+  return false;
+}
+
 /** Resolve associated label text: <label for>, wrapping <label>, aria-labelledby,
  * or the sibling <label> of a horizontal form row (see siblingLabel). */
 function resolveLabel(el: Element): string | undefined {

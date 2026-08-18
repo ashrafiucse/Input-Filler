@@ -206,6 +206,36 @@ describe('intl-tel-input phone fields', () => {
     const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
     expect(q.value).toMatch(/^\(\d{3}\) \d{3}-\d{4}$/);
   });
+  it('fills E.164 when the placeholder shows a country-coded example', () => {
+    // The reported case: a plain tel input whose site validation rejects
+    // "(480) 756-0648" but accepts "+3814807560648".
+    setDoc(`<form><input name="phone_number" type="tel" placeholder="+381 63 123 4567"></form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\+1\d{10}$/);
+  });
+  it('fills E.164 when the pattern requires a literal +', () => {
+    setDoc(`<form><input name="phone_number" type="tel" pattern="^\\+[1-9]\\d{10,14}"></form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\+1\d{10}$/);
+  });
+  it('fills E.164 when the label asks for the country code', () => {
+    setDoc(`
+      <form>
+        <label for="phone">Phone (with country code)</label>
+        <input id="phone" name="phone_number" type="tel">
+      </form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\+1\d{10}$/);
+  });
+  it('keeps the national format when maxlength cannot fit E.164', () => {
+    setDoc(`<form><input name="phone_number" type="tel" placeholder="+1 (555) 000-0000" maxlength="10"></form>`);
+    fillAllForms(document, ctx());
+    const q = document.querySelector('[name="phone_number"]') as HTMLInputElement;
+    expect(q.value).toMatch(/^\(\d{3}\) \d{3}-\d{4}$/);
+  });
 });
 
 describe('fillCurrentForm', () => {

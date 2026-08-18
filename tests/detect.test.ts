@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, isPrelineSelectDesc, isIntlTelInputWidget, type FieldDescriptor } from '../src/lib/detect';
+import { detectType, resolveMediaProvider, isSecurityTokenField, isComboboxDesc, isPrelineSelectDesc, isIntlTelInputWidget, wantsIntlPhone, type FieldDescriptor } from '../src/lib/detect';
 
 function input(attrs: Partial<FieldDescriptor> = {}): FieldDescriptor {
   return { tag: 'input', type: 'text', ...attrs };
@@ -319,5 +319,57 @@ describe('isIntlTelInputWidget', () => {
   });
   it('a plain tel input is not flagged', () => {
     expect(isIntlTelInputWidget(tel())).toBe(false);
+  });
+});
+
+describe('wantsIntlPhone', () => {
+  const base: FieldDescriptor = { tag: 'input', type: 'tel' };
+  function field(desc: Partial<FieldDescriptor> = {}, attrs: Record<string, string> = {}) {
+    const el = document.createElement('input');
+    el.type = 'tel';
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    document.body.appendChild(el);
+    return { el, desc: { ...base, ...desc } as FieldDescriptor };
+  }
+  it('is true for an intl-tel-input widget regardless of hints', () => {
+    const { el, desc } = field({}, { 'data-intl-tel-input-id': '0' });
+    expect(wantsIntlPhone(el, desc)).toBe(true);
+  });
+  it('placeholder with a country-coded example (+ then digit)', () => {
+    for (const ph of ['+381 63 123 4567', 'e.g. +44 7911 123457', '+1 (555) 000-0000']) {
+      const { el, desc } = field({ placeholder: ph });
+      expect(wantsIntlPhone(el, desc)).toBe(true);
+    }
+  });
+  it('placeholder asking for the country code in words', () => {
+    const { el, desc } = field({ placeholder: 'Phone with country code' });
+    expect(wantsIntlPhone(el, desc)).toBe(true);
+  });
+  it('pattern requiring a literal + (escaped, not a quantifier)', () => {
+    let f = field({}, { pattern: '^\\+[1-9]\\d{10,14}$' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(true);
+    f = field({}, { pattern: '[+][0-9]+' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(true);
+    // A bare + is a quantifier (e.g. "[0-9]+"), not a literal + requirement.
+    f = field({}, { pattern: '^[0-9]+$' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(false);
+  });
+  it('label / aria-label / title mentioning international or country code', () => {
+    let f = field({ label: 'International phone number' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(true);
+    f = field({ ariaLabel: 'Mobile number with country code' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(true);
+    f = field({}, { title: 'Enter your country code and number' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(true);
+  });
+  it('a plain tel input with no hints stays national', () => {
+    let f = field({ placeholder: '(555) 000-0000' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(false);
+    f = field({ label: 'Phone number' });
+    expect(wantsIntlPhone(f.el, f.desc)).toBe(false);
+  });
+  it('maxlength under 12 chars suppresses E.164 even with hints', () => {
+    const { el, desc } = field({ placeholder: '+381 63 123 4567' }, { maxlength: '10' });
+    expect(wantsIntlPhone(el, desc)).toBe(false);
   });
 });
